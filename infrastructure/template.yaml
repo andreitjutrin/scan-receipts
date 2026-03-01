@@ -1,0 +1,490 @@
+AWSTemplateFormatVersion: '2010-09-09'
+Transform: AWS::Serverless-2016-10-31
+
+Description: >
+  Grocery Receipt Scanner v4
+  ~$1.30/month at 100 receipts.
+  Hybrid store-scoped + global mapping with updated confidence thresholds.
+  S3 event triggers processor automatically (no manual trigger).
+  Cost safeguards: process_count limit, Lambda concurrency cap, SNS alerts.
+
+Parameters:
+  Environment:
+    Type: String
+    Default: dev
+    AllowedValues: [dev, prod]
+
+  ApiKeyValue:
+    Type: String
+    NoEcho: true
+    Description: API key — change before deploying to prod
+
+  AlertEmail:
+    Type: String
+    Default: "your@email.com"
+    Description: Email address for cost/error alerts (process limit breaches)
+
+Globals:
+  Function:
+    Runtime: python3.12
+    Architectures: [arm64]
+    MemorySize: 256
+    Timeout: 30
+    Environment:
+      Variables:
+        ENVIRONMENT:      !Ref Environment
+        RECEIPTS_TABLE:   !Ref ReceiptsTable
+        ITEMS_TABLE:      !Ref ItemsTable
+        MAPPINGS_TABLE:   !Ref MappingsTable
+        CATEGORIES_TABLE: !Ref CategoriesTable
+        RETAILERS_TABLE:  !Ref RetailersTable
+        IMAGES_BUCKET:    !Ref ImagesBucket
+        EXPORTS_BUCKET:   !Ref ExportsBucket
+        ALERT_TOPIC_ARN:  !Ref AlertTopic
+        LOG_LEVEL:        INFO
+        # Confidence thresholds — matches models.py constants
+        THRESHOLD_SILENT: "0.92"   # >= this: auto-categorise silently
+        THRESHOLD_REVIEW: "0.75"   # >= this: auto-categorise, flag for review
+        THRESHOLD_GUESS:  "0.50"   # >= this: flag review, show best guess
+        MAX_PROCESS_COUNT: "3"     # max Textract calls per receipt
+
+Resources:
+
+  # ---------------------------------------------------------------------------
+  # SNS ALERT TOPIC
+  # Email sent when: process_count limit reached, unexpected Lambda errors
+  # ---------------------------------------------------------------------------
+  AlertTopic:
+    Type: AWS::SNS::Topic
+    Properties:
+      TopicName: !Sub "grocery-alerts-${Environment}"
+      Subscription:
+        - Protocol: email
+          Endpoint: !Ref AlertEmail
+
+  # ---------------------------------------------------------------------------
+  # S3 BUCKETS
+  # ---------------------------------------------------------------------------
+  ImagesBucket:
+    Type: AWS::S3::Bucket
+    Properties:
+      BucketName: !Sub "grocery-images-${Environment}-${AWS::AccountId}"
+      CorsConfiguration:
+        CorsRules:
+          - AllowedHeaders: ["*"]
+            AllowedMethods: [GET, PUT]
+            AllowedOrigins: ["*"]
+            MaxAge: 3600
+      PublicAccessBlockConfiguration:
+        BlockPublicAcls:        true
+        BlockPublicPolicy:      true
+        IgnorePublicAcls:       true
+        RestrictPublicBuckets:  true
+      # NOTE: S3 event notification is configured separately after first deploy
+      # using: aws s3api put-bucket-notification-configuration
+      # This avoids a chicken-and-egg problem where S3 needs the Lambda to exist
+      # to validate the notification, but Lambda needs to be deployed first.
+      # No versioning needed on images — each receipt has a unique filename
+      LifecycleConfiguration:
+        Rules:
+          - Id: DeleteOldImages
+            Status: Enabled
+            ExpirationInDays: 365   # kept for reprocessing, deleted after 1 year
+
+  ExportsBucket:
+    Type: AWS::S3::Bucket
+    Properties:
+      BucketName: !Sub "grocery-exports-${Environment}-${AWS::AccountId}"
+      CorsConfiguration:
+        CorsRules:
+          - AllowedHeaders: ["*"]
+            AllowedMethods: [GET, PUT]
+            AllowedOrigins: ["*"]
+            MaxAge: 3600
+      PublicAccessBlockConfiguration:
+        BlockPublicAcls:        true
+        BlockPublicPolicy:      true
+        IgnorePublicAcls:       true
+        RestrictPublicBuckets:  true
+      # Versioning ON — every master.xlsx write keeps previous version
+      VersioningConfiguration:
+        Status: Enabled
+      LifecycleConfiguration:
+        Rules:
+          - Id: DeleteOldBackups
+            Status: Enabled
+            # Delete dated backup files after 30 days
+            NoncurrentVersionExpirationInDays: 30
+            ExpirationInDays: 90   # keep named backups for 90 days
+
+  # Allow S3 to invoke the processor Lambda.
+  # FunctionName uses !Sub with account/region to avoid circular dependency.
+  # (ImagesBucket → ProcessorFunction → ImagesBucket would be circular if we
+  #  used !GetAtt ProcessorFunction.Arn here while the bucket also references
+  #  the Lambda via its NotificationConfiguration.)
+  ImagesBucketPermission:
+    Type: AWS::Lambda::Permission
+    DependsOn: ProcessorFunction
+    Properties:
+      FunctionName: !Sub "arn:aws:lambda:${AWS::Region}:${AWS::AccountId}:function:grocery-processor-${Environment}"
+      Action: lambda:InvokeFunction
+      Principal: s3.amazonaws.com
+      SourceArn: !Sub "arn:aws:s3:::grocery-images-${Environment}-${AWS::AccountId}"
+
+  # ---------------------------------------------------------------------------
+  # DYNAMODB TABLES
+  # ---------------------------------------------------------------------------
+
+  # One record per receipt
+  ReceiptsTable:
+    Type: AWS::DynamoDB::Table
+    Properties:
+      TableName: !Sub "grocery-receipts-${Environment}"
+      BillingMode: PAY_PER_REQUEST
+      AttributeDefinitions:
+        - AttributeName: receipt_id
+          AttributeType: S
+        - AttributeName: user_id
+          AttributeType: S
+        - AttributeName: receipt_date
+          AttributeType: S
+      KeySchema:
+        - AttributeName: receipt_id
+          KeyType: HASH
+      GlobalSecondaryIndexes:
+        - IndexName: UserDateIndex
+          KeySchema:
+            - AttributeName: user_id
+              KeyType: HASH
+            - AttributeName: receipt_date
+              KeyType: RANGE
+          Projection:
+            ProjectionType: ALL
+
+  # Line items per receipt
+  ItemsTable:
+    Type: AWS::DynamoDB::Table
+    Properties:
+      TableName: !Sub "grocery-items-${Environment}"
+      BillingMode: PAY_PER_REQUEST
+      AttributeDefinitions:
+        - AttributeName: receipt_id
+          AttributeType: S
+        - AttributeName: item_seq
+          AttributeType: S
+      KeySchema:
+        - AttributeName: receipt_id
+          KeyType: HASH
+        - AttributeName: item_seq
+          KeyType: RANGE
+
+  # Hybrid category mappings
+  # PK: mapping_key = "store_id#normalized_name"
+  # GSI: store_id → load all store mappings at cold start
+  MappingsTable:
+    Type: AWS::DynamoDB::Table
+    Properties:
+      BillingMode: PAY_PER_REQUEST
+      AttributeDefinitions:
+        - AttributeName: mapping_key
+          AttributeType: S
+        - AttributeName: store_id
+          AttributeType: S
+      KeySchema:
+        - AttributeName: mapping_key
+          KeyType: HASH
+      GlobalSecondaryIndexes:
+        - IndexName: StoreIndex
+          KeySchema:
+            - AttributeName: store_id
+              KeyType: HASH
+          Projection:
+            ProjectionType: ALL
+
+  CategoriesTable:
+    Type: AWS::DynamoDB::Table
+    Properties:
+      TableName: !Sub "grocery-categories-${Environment}"
+      BillingMode: PAY_PER_REQUEST
+      AttributeDefinitions:
+        - AttributeName: category_id
+          AttributeType: S
+      KeySchema:
+        - AttributeName: category_id
+          KeyType: HASH
+
+  RetailersTable:
+    Type: AWS::DynamoDB::Table
+    Properties:
+      TableName: !Sub "grocery-retailers-${Environment}"
+      BillingMode: PAY_PER_REQUEST
+      AttributeDefinitions:
+        - AttributeName: retailer_id
+          AttributeType: S
+      KeySchema:
+        - AttributeName: retailer_id
+          KeyType: HASH
+
+  # ---------------------------------------------------------------------------
+  # IAM ROLE
+  # ---------------------------------------------------------------------------
+  LambdaRole:
+    Type: AWS::IAM::Role
+    Properties:
+      RoleName: !Sub "grocery-scanner-role-${Environment}"
+      AssumeRolePolicyDocument:
+        Version: "2012-10-17"
+        Statement:
+          - Effect: Allow
+            Principal:
+              Service: lambda.amazonaws.com
+            Action: sts:AssumeRole
+      ManagedPolicyArns:
+        - arn:aws:iam::aws:policy/service-role/AWSLambdaBasicExecutionRole
+      Policies:
+        - PolicyName: GroceryScannerAccess
+          PolicyDocument:
+            Version: "2012-10-17"
+            Statement:
+              - Effect: Allow
+                Action: [s3:GetObject, s3:PutObject, s3:DeleteObject, s3:CopyObject]
+                Resource:
+                  - !Sub "${ImagesBucket.Arn}/*"
+                  - !Sub "${ExportsBucket.Arn}/*"
+              - Effect: Allow
+                Action: [s3:ListBucket, s3:ListBucketVersions]
+                Resource:
+                  - !GetAtt ImagesBucket.Arn
+                  - !GetAtt ExportsBucket.Arn
+              - Effect: Allow
+                Action:
+                  - dynamodb:GetItem
+                  - dynamodb:PutItem
+                  - dynamodb:UpdateItem
+                  - dynamodb:DeleteItem
+                  - dynamodb:Query
+                  - dynamodb:Scan
+                  - dynamodb:BatchGetItem
+                  - dynamodb:BatchWriteItem
+                Resource:
+                  - !GetAtt ReceiptsTable.Arn
+                  - !Sub "${ReceiptsTable.Arn}/index/*"
+                  - !GetAtt ItemsTable.Arn
+                  - !GetAtt MappingsTable.Arn
+                  - !Sub "${MappingsTable.Arn}/index/*"
+                  - !GetAtt CategoriesTable.Arn
+                  - !GetAtt RetailersTable.Arn
+              - Effect: Allow
+                Action: textract:AnalyzeExpense
+                Resource: "*"
+              - Effect: Allow
+                Action: sns:Publish
+                Resource: !Ref AlertTopic
+
+  # ---------------------------------------------------------------------------
+  # LAMBDA FUNCTIONS
+  # ---------------------------------------------------------------------------
+
+  UploadFunction:
+    Type: AWS::Serverless::Function
+    Properties:
+      FunctionName: !Sub "grocery-upload-${Environment}"
+      CodeUri: ../lambdas/receipt_upload/
+      Handler: handler.lambda_handler
+      Role: !GetAtt LambdaRole.Arn
+      Description: >
+        Creates pending receipt record, returns presigned S3 URL.
+        User selects store_id before calling this.
+      Environment:
+        Variables:
+          PRESIGNED_EXPIRY: "300"   # presigned URL expires in 5 minutes
+      Events:
+        Api:
+          Type: Api
+          Properties:
+            RestApiId: !Ref Api
+            Path: /receipts/upload-url
+            Method: POST
+
+  UploadLogGroup:
+    Type: AWS::Logs::LogGroup
+    Properties:
+      LogGroupName: !Sub "/aws/lambda/grocery-upload-${Environment}"
+      RetentionInDays: 14
+
+  ProcessorFunction:
+    Type: AWS::Serverless::Function
+    Properties:
+      FunctionName: !Sub "grocery-processor-${Environment}"
+      CodeUri: ../lambdas/receipt_processor/
+      Handler: handler.lambda_handler
+      Role: !GetAtt LambdaRole.Arn
+      Description: >
+        Triggered automatically by S3 event when photo lands.
+        Runs Textract, hybrid matching, saves items, updates Excel.
+        Safeguard: max 2 concurrent, max 3 Textract calls per receipt.
+      MemorySize: 512
+      Timeout: 120
+      Events:
+        # S3 trigger is configured on ImagesBucket.NotificationConfiguration
+        # (not here) to avoid a circular dependency between the bucket and
+        # this function. The ImagesBucketPermission resource grants S3 the
+        # right to invoke this Lambda.
+        # Available via API for manual reprocessing:
+        ReprocessApi:
+          Type: Api
+          Properties:
+            RestApiId: !Ref Api
+            Path: /receipts/{receipt_id}/reprocess
+            Method: POST
+
+  ProcessorLogGroup:
+    Type: AWS::Logs::LogGroup
+    Properties:
+      LogGroupName: !Sub "/aws/lambda/grocery-processor-${Environment}"
+      RetentionInDays: 14
+
+  ReceiptsFunction:
+    Type: AWS::Serverless::Function
+    Properties:
+      FunctionName: !Sub "grocery-receipts-${Environment}"
+      CodeUri: ../lambdas/receipt_confirm/
+      Handler: handler.lambda_handler
+      Role: !GetAtt LambdaRole.Arn
+      Description: CRUD for receipts and items, saves user corrections to mappings
+      Events:
+        ListReceipts:
+          Type: Api
+          Properties:
+            RestApiId: !Ref Api
+            Path: /receipts
+            Method: GET
+        GetReceipt:
+          Type: Api
+          Properties:
+            RestApiId: !Ref Api
+            Path: /receipts/{receipt_id}
+            Method: GET
+        ConfirmReceipt:
+          Type: Api
+          Properties:
+            RestApiId: !Ref Api
+            Path: /receipts/{receipt_id}/confirm
+            Method: POST
+        DeleteReceipt:
+          Type: Api
+          Properties:
+            RestApiId: !Ref Api
+            Path: /receipts/{receipt_id}
+            Method: DELETE
+
+  ReceiptsLogGroup:
+    Type: AWS::Logs::LogGroup
+    Properties:
+      LogGroupName: !Sub "/aws/lambda/grocery-receipts-${Environment}"
+      RetentionInDays: 14
+
+  ReferenceFunction:
+    Type: AWS::Serverless::Function
+    Properties:
+      FunctionName: !Sub "grocery-reference-${Environment}"
+      CodeUri: ../lambdas/category_trainer/
+      Handler: handler.lambda_handler
+      Role: !GetAtt LambdaRole.Arn
+      Description: Categories and retailers reference data — GET lists, POST new store
+      Events:
+        GetCategories:
+          Type: Api
+          Properties:
+            RestApiId: !Ref Api
+            Path: /categories
+            Method: GET
+        GetRetailers:
+          Type: Api
+          Properties:
+            RestApiId: !Ref Api
+            Path: /retailers
+            Method: GET
+        AddRetailer:
+          Type: Api
+          Properties:
+            RestApiId: !Ref Api
+            Path: /retailers
+            Method: POST
+
+  ReferenceLogGroup:
+    Type: AWS::Logs::LogGroup
+    Properties:
+      LogGroupName: !Sub "/aws/lambda/grocery-reference-${Environment}"
+      RetentionInDays: 14
+
+  AdminFunction:
+    Type: AWS::Serverless::Function
+    Properties:
+      FunctionName: !Sub "grocery-admin-${Environment}"
+      CodeUri: ../lambdas/admin/
+      Handler: handler.lambda_handler
+      Role: !GetAtt LambdaRole.Arn
+      Description: Admin endpoints — list backups, restore backup
+      Events:
+        ListBackups:
+          Type: Api
+          Properties:
+            RestApiId: !Ref Api
+            Path: /admin/backups
+            Method: GET
+        RestoreBackup:
+          Type: Api
+          Properties:
+            RestApiId: !Ref Api
+            Path: /admin/restore-backup
+            Method: POST
+
+  AdminLogGroup:
+    Type: AWS::Logs::LogGroup
+    Properties:
+      LogGroupName: !Sub "/aws/lambda/grocery-admin-${Environment}"
+      RetentionInDays: 14
+
+  # ---------------------------------------------------------------------------
+  # API GATEWAY
+  # ---------------------------------------------------------------------------
+  Api:
+    Type: AWS::Serverless::Api
+    Properties:
+      Name: !Sub "grocery-api-${Environment}"
+      StageName: !Ref Environment
+      Auth:
+        ApiKeyRequired: true
+        UsagePlan:
+          CreateUsagePlan: PER_API
+          Quota:
+            Limit: 500
+            Period: DAY
+          Throttle:
+            BurstLimit: 10
+            RateLimit: 5
+      Cors:
+        AllowMethods: "'GET,POST,DELETE,OPTIONS'"
+        AllowHeaders: "'Content-Type,X-Api-Key'"
+        AllowOrigin:  "'*'"
+
+# =============================================================================
+# OUTPUTS
+# =============================================================================
+Outputs:
+  ApiUrl:
+    Description: "API Gateway URL"
+    Value: !Sub "https://${Api}.execute-api.${AWS::Region}.amazonaws.com/${Environment}"
+
+  ImagesBucket:
+    Description: "S3 bucket for receipt images (auto-triggers processor)"
+    Value: !Ref ImagesBucket
+
+  ExportsBucket:
+    Description: "S3 bucket for master.xlsx and backups (versioning ON)"
+    Value: !Ref ExportsBucket
+
+  AlertTopicArn:
+    Description: "SNS topic for cost/error alerts"
+    Value: !Ref AlertTopic

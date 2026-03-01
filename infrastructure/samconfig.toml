@@ -1,0 +1,35 @@
+version = 0.1
+
+[dev.global.parameters]
+stack_name              = "grocery-scanner-dev"
+template_file           = ".aws-sam/build/template.yaml"
+resolve_s3              = true
+s3_prefix               = "grocery-scanner"
+region                  = "eu-west-2"
+capabilities            = "CAPABILITY_IAM CAPABILITY_NAMED_IAM"
+confirm_changeset       = false
+fail_on_empty_changeset = false
+
+[dev.deploy.parameters]
+parameter_overrides     = ["Environment=dev", "ApiKeyValue=dev-key-change-me", "AlertEmail=your@gmail.com"]
+tags                    = "Project=GroceryScanner Environment=dev"
+
+[dev.build.parameters]
+template_file           = "infrastructure/template.yaml"
+
+[prod.global.parameters]
+stack_name              = "grocery-scanner-prod"
+template_file           = ".aws-sam/build/template.yaml"
+resolve_s3              = true
+s3_prefix               = "grocery-scanner"
+region                  = "eu-west-2"
+capabilities            = "CAPABILITY_IAM CAPABILITY_NAMED_IAM"
+confirm_changeset       = true
+fail_on_empty_changeset = false
+
+[prod.deploy.parameters]
+parameter_overrides     = ["Environment=prod", "ApiKeyValue=REPLACE-WITH-STRONG-KEY", "AlertEmail=your@gmail.com"]
+tags                    = "Project=GroceryScanner Environment=prod"
+
+[prod.build.parameters]
+template_file           = "infrastructure/template.yaml"

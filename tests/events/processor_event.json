@@ -1,0 +1,9 @@
+{
+  "httpMethod": "POST",
+  "path": "/receipts/process",
+  "headers": { "Content-Type": "application/json", "X-Api-Key": "dev-key-change-me" },
+  "body": "{\"receipt_id\":\"test-receipt-001\",\"s3_key\":\"uploads/test-receipt-001.jpg\",\"retailer_hint\":\"tesco\"}",
+  "queryStringParameters": null,
+  "pathParameters": null,
+  "requestContext": { "stage": "dev", "requestId": "test-002" }
+}

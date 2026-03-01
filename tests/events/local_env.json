@@ -1,0 +1,27 @@
+{
+  "UploadFunction": {
+    "ENVIRONMENT": "dev",
+    "RECEIPTS_TABLE": "grocery-receipts-dev",
+    "ITEMS_TABLE": "grocery-items-dev",
+    "MAPPINGS_TABLE": "grocery-mappings-dev",
+    "CATEGORIES_TABLE": "grocery-categories-dev",
+    "RETAILERS_TABLE": "grocery-retailers-dev",
+    "IMAGES_BUCKET": "grocery-images-dev-123456789012",
+    "EXPORTS_BUCKET": "grocery-exports-dev-123456789012",
+    "PRESIGNED_EXPIRY": "300",
+    "LOG_LEVEL": "DEBUG"
+  },
+  "ProcessorFunction": {
+    "ENVIRONMENT": "dev",
+    "RECEIPTS_TABLE": "grocery-receipts-dev",
+    "ITEMS_TABLE": "grocery-items-dev",
+    "MAPPINGS_TABLE": "grocery-mappings-dev",
+    "CATEGORIES_TABLE": "grocery-categories-dev",
+    "RETAILERS_TABLE": "grocery-retailers-dev",
+    "IMAGES_BUCKET": "grocery-images-dev-123456789012",
+    "EXPORTS_BUCKET": "grocery-exports-dev-123456789012",
+    "CONFIDENCE_THRESHOLD": "0.70",
+    "FUZZY_THRESHOLD": "80",
+    "LOG_LEVEL": "DEBUG"
+  }
+}

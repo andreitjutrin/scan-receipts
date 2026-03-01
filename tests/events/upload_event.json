@@ -1,0 +1,9 @@
+{
+  "httpMethod": "POST",
+  "path": "/receipts/upload-url",
+  "headers": { "Content-Type": "application/json", "X-Api-Key": "dev-key-change-me" },
+  "body": "{\"filename\":\"tesco_receipt.jpg\",\"content_type\":\"image/jpeg\",\"retailer_hint\":\"tesco\"}",
+  "queryStringParameters": null,
+  "pathParameters": null,
+  "requestContext": { "stage": "dev", "requestId": "test-001" }
+}
