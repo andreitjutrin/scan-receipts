@@ -468,6 +468,24 @@ Resources:
         AllowMethods: "'GET,POST,DELETE,OPTIONS'"
         AllowHeaders: "'Content-Type,X-Api-Key'"
         AllowOrigin:  "'*'"
+      # GatewayResponses injects CORS headers onto API Gateway error responses
+      # (e.g. 403 Missing Authentication Token on OPTIONS preflight, 4xx/5xx errors).
+      # Without this, the browser sees a network error instead of the real status code
+      # because the error response arrives without Access-Control-Allow-Origin.
+      # 'null' origin covers pages loaded via file:// on disk.
+      GatewayResponses:
+        DEFAULT_4XX:
+          ResponseParameters:
+            Headers:
+              Access-Control-Allow-Origin: "'*'"
+              Access-Control-Allow-Headers: "'Content-Type,X-Api-Key'"
+              Access-Control-Allow-Methods: "'GET,POST,DELETE,OPTIONS'"
+        DEFAULT_5XX:
+          ResponseParameters:
+            Headers:
+              Access-Control-Allow-Origin: "'*'"
+              Access-Control-Allow-Headers: "'Content-Type,X-Api-Key'"
+              Access-Control-Allow-Methods: "'GET,POST,DELETE,OPTIONS'"
 
 # =============================================================================
 # OUTPUTS
