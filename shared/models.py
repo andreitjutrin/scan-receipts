@@ -1,16 +1,16 @@
-"""
+﻿"""
 Shared data models used by all Lambda functions.
 
 Confidence thresholds (agreed v4):
-  >= 0.92  → auto-categorise silently, no review needed
-  0.75–0.91 → auto-categorise but flag for review, promoted to trusted after 3× confirmations
-  0.50–0.74 → always flag for review, category shown as best guess
-  < 0.50   → Unknown, user picks category from scratch
+  >= 0.92  â†’ auto-categorise silently, no review needed
+  0.75â€“0.91 â†’ auto-categorise but flag for review, promoted to trusted after 3Ã— confirmations
+  0.50â€“0.74 â†’ always flag for review, category shown as best guess
+  < 0.50   â†’ Unknown, user picks category from scratch
 
 Trust levels:
-  tentative → fuzzy score 0.75–0.91, shown in review list
-  confident → score >= 0.92 OR confirmed 3× by user
-  trusted   → seeded / manually corrected / confirmed 5× — never overwritten silently
+  tentative â†’ fuzzy score 0.75â€“0.91, shown in review list
+  confident â†’ score >= 0.92 OR confirmed 3Ã— by user
+  trusted   â†’ seeded / manually corrected / confirmed 5Ã— â€” never overwritten silently
 """
 
 from __future__ import annotations
@@ -22,12 +22,12 @@ from pydantic import BaseModel, Field, field_validator
 
 
 # ---------------------------------------------------------------------------
-# THRESHOLDS — single source of truth, referenced throughout codebase
+# THRESHOLDS â€” single source of truth, referenced throughout codebase
 # ---------------------------------------------------------------------------
 THRESHOLD_SILENT   = 0.92   # >= this: auto-categorise, no review
 THRESHOLD_REVIEW   = 0.75   # >= this: auto-categorise, flag for review
 THRESHOLD_GUESS    = 0.50   # >= this: flag for review, show as best guess
-# < THRESHOLD_GUESS → Unknown, no guess made, user picks from scratch
+# < THRESHOLD_GUESS â†’ Unknown, no guess made, user picks from scratch
 
 TRUST_PROMOTE_CONFIDENT = 3   # confirmations to reach confident
 TRUST_PROMOTE_TRUSTED   = 5   # confirmations to reach trusted
@@ -55,7 +55,7 @@ class MatchSource(str, Enum):
 
 
 class TrustLevel(str, Enum):
-    TENTATIVE = "tentative"   # fuzzy score 0.75–0.91, shown in review list
+    TENTATIVE = "tentative"   # fuzzy score 0.75â€“0.91, shown in review list
     CONFIDENT = "confident"   # score >= 0.92 or confirmed 3+ times
     TRUSTED   = "trusted"     # seeded, manually confirmed, or confirmed 5+ times
 
@@ -70,11 +70,20 @@ class ReceiptItem(BaseModel):
     category:         str          = "unknown"   # "unknown" until matched or user picks
     price:            str          = "0.00"      # string to avoid DynamoDB Decimal issues
     quantity:         str          = "1"
-    match_confidence: float        = 0.0
-    match_source:     MatchSource  = MatchSource.UNKNOWN
-    trust:            TrustLevel   = TrustLevel.TENTATIVE
-    needs_review:     bool         = False       # true if confidence < THRESHOLD_SILENT
-    confirmed:        bool         = False       # true once user has reviewed
+    match_confidence:    float         = 0.0
+    match_source:        MatchSource   = MatchSource.UNKNOWN
+    matched_keyword:     Optional[str] = None
+    trust:               TrustLevel    = TrustLevel.TENTATIVE
+    needs_review:        bool          = False
+    review_reason:       Optional[str] = None
+    confirmed:           bool          = False
+    original_category:   Optional[str] = None
+    corrected_at:        Optional[str] = None
+    exported_to_excel:   bool          = False
+    exported_at:         Optional[str] = None
+    export_filename:     Optional[str] = None
+    price_raw:           Optional[str] = None
+    textract_confidence: Optional[float] = None
 
     @field_validator("match_confidence")
     @classmethod
@@ -83,15 +92,15 @@ class ReceiptItem(BaseModel):
 
     @property
     def review_reason(self) -> Optional[str]:
-        """Human-readable reason why this item needs review — shown in PWA."""
+        """Human-readable reason why this item needs review â€” shown in PWA."""
         if self.match_source == MatchSource.UNKNOWN:
-            return "No match found — please select a category"
+            return "No match found â€” please select a category"
         if self.match_confidence < THRESHOLD_GUESS:
-            return "Very low confidence — please select a category"
+            return "Very low confidence â€” please select a category"
         if self.match_confidence < THRESHOLD_REVIEW:
-            return f"Low confidence ({self.match_confidence:.0%}) — please confirm"
+            return f"Low confidence ({self.match_confidence:.0%}) â€” please confirm"
         if self.match_confidence < THRESHOLD_SILENT:
-            return f"Moderate confidence ({self.match_confidence:.0%}) — please confirm"
+            return f"Moderate confidence ({self.match_confidence:.0%}) â€” please confirm"
         return None
 
 
@@ -123,7 +132,7 @@ class Receipt(BaseModel):
 
 
 # ---------------------------------------------------------------------------
-# CATEGORY MAPPING — the hybrid learning store
+# CATEGORY MAPPING â€” the hybrid learning store
 # ---------------------------------------------------------------------------
 class CategoryMapping(BaseModel):
     mapping_key:     str                    # "{store_id}#{normalized_name}"
@@ -167,7 +176,7 @@ class CategoryMapping(BaseModel):
 
 class UploadUrlRequest(BaseModel):
     filename:     str
-    store_id:     str                  # required — user selects store before scanning
+    store_id:     str                  # required â€” user selects store before scanning
     content_type: str = "image/jpeg"
 
 

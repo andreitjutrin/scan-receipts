@@ -1,5 +1,6 @@
+﻿import os
 """
-Receipts Lambda � CRUD for receipts and line items.
+Receipts Lambda — CRUD for receipts and line items.
 """
 
 import json
@@ -91,8 +92,16 @@ def _confirm_receipt(receipt_id, event):
                   else ProcessingStatus.NEEDS_REVIEW.value)
     db.update_receipt(receipt_id, status=new_status, needs_review_count=still_open)
 
+    # Auto-export when all items are validated
+    exported = False
+    if still_open == 0 and db.receipt_export_ready(receipt_id):
+        exports_bucket = os.environ.get("EXPORTS_BUCKET", "")
+        if exports_bucket:
+            result = db.export_receipt_to_excel(receipt_id, exports_bucket)
+            exported = result is not None
+
     return _ok({"receipt_id": receipt_id, "corrected": corrected,
-                "still_open": still_open, "status": new_status})
+                "still_open": still_open, "status": new_status, "exported": exported})
 
 
 def _delete_receipt(receipt_id):

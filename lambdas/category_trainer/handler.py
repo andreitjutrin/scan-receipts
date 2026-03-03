@@ -1,5 +1,5 @@
-"""
-Reference Lambda � categories, retailers reference data.
+﻿"""
+Reference Lambda — categories, retailers reference data.
 """
 
 import json

@@ -1,5 +1,5 @@
-"""
-Admin Lambda � backup management.
+﻿"""
+Admin Lambda — backup management.
 """
 
 import json

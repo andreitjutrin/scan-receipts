@@ -1,5 +1,5 @@
-"""
-Processor Lambda � triggered automatically by S3 when a photo lands.
+﻿"""
+Processor Lambda — triggered automatically by S3 when a photo lands.
 """
 
 import json
@@ -63,7 +63,7 @@ def match_item(normalized: str, store_id: str, strip_prefixes: list):
     if hit:
         src = (MatchSource.STORE_EXACT if hit.get("store_id") == store_id
                else MatchSource.GLOBAL_EXACT)
-        return hit["category"], src, 1.0, TrustLevel.TRUSTED, False
+        return hit["category"], src, 1.0, TrustLevel.TRUSTED, False, normalized
 
     keywords = _all_keywords(store_id)
 
@@ -77,7 +77,7 @@ def match_item(normalized: str, store_id: str, strip_prefixes: list):
         mapping = _get_from_cache(store_id, best_kw)
         if mapping:
             conf = 0.95
-            return mapping["category"], MatchSource.FUZZY, conf, TrustLevel.CONFIDENT, conf < THRESHOLD_SILENT
+            return mapping["category"], MatchSource.FUZZY, conf, TrustLevel.CONFIDENT, conf < THRESHOLD_SILENT, best_kw
 
     if keywords:
         cutoff = int(THRESHOLD_GUESS * 100)
@@ -92,9 +92,9 @@ def match_item(normalized: str, store_id: str, strip_prefixes: list):
             if mapping:
                 conf  = round(score / 100, 4)
                 trust = TrustLevel.CONFIDENT if conf >= THRESHOLD_SILENT else TrustLevel.TENTATIVE
-                return mapping["category"], MatchSource.FUZZY, conf, trust, conf < THRESHOLD_SILENT
+                return mapping["category"], MatchSource.FUZZY, conf, trust, conf < THRESHOLD_SILENT, best_kw
 
-    return "other", MatchSource.UNKNOWN, 0.0, TrustLevel.TENTATIVE, True
+    return "other", MatchSource.UNKNOWN, 0.0, TrustLevel.TENTATIVE, True, None
 
 
 def run_textract(bucket: str, s3_key: str) -> dict:
@@ -128,7 +128,7 @@ def parse_textract(resp: dict):
                     elif ftype in ("UNIT_PRICE", "PRICE"): price = value
                     elif ftype == "QUANTITY": qty   = value
                 if name:
-                    items.append({"name": name, "price": price or "0.00", "quantity": qty or "1"})
+                    items.append({"name": name, "price": price or "0.00", "quantity": qty or "1", "price_raw": price})
 
     return date, total, " ".join(header_parts[:15]), items
 
@@ -168,22 +168,39 @@ def process_receipt(receipt_id: str, bucket: str, s3_key: str, store_id: str = "
             if not norm:
                 continue
 
-            category, source, conf, trust, needs_review = match_item(norm, store_id, strip_prefixes)
+            category, source, conf, trust, needs_review, matched_kw = match_item(norm, store_id, strip_prefixes)
             if needs_review:
                 needs_review_count += 1
+
+            # compute review reason for audit trail
+            if source == MatchSource.UNKNOWN:
+                reason = "No match found"
+            elif conf < THRESHOLD_GUESS:
+                reason = f"Very low confidence ({conf:.0%})"
+            elif conf < THRESHOLD_REVIEW:
+                reason = f"Low confidence ({conf:.0%})"
+            elif conf < THRESHOLD_SILENT:
+                reason = f"Moderate confidence ({conf:.0%})"
+            else:
+                reason = None
 
             item = ReceiptItem(
                 item_seq=str(i).zfill(4),
                 raw_name=raw,
                 normalized_name=norm,
                 category=category,
+                original_category=category,
                 price=line["price"],
+                price_raw=line.get("price_raw", line["price"]),
                 quantity=line["quantity"],
                 match_confidence=conf,
                 match_source=source,
+                matched_keyword=matched_kw,
                 trust=trust,
                 needs_review=needs_review,
-                confirmed=False
+                review_reason=reason,
+                confirmed=False,
+                exported_to_excel=False
             )
             receipt_items.append(item)
 
@@ -213,6 +230,12 @@ def process_receipt(receipt_id: str, bucket: str, s3_key: str, store_id: str = "
             item_count=len(receipt_items),
             needs_review_count=needs_review_count
         )
+
+        # Auto-export if all items matched at 100%
+        if needs_review_count == 0 and db.receipt_export_ready(receipt_id):
+            exports_bucket = os.environ.get("EXPORTS_BUCKET", "")
+            if exports_bucket:
+                db.export_receipt_to_excel(receipt_id, exports_bucket)
 
     except Exception as e:
         import traceback; traceback.print_exc()

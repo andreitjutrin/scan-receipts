@@ -1,11 +1,11 @@
-"""
+﻿"""
 DynamoDB helpers shared by all Lambda functions.
 Implements hybrid store-scoped + global fallback mapping lookups.
 
 Confidence thresholds (v4 agreed):
   >= 0.92  silent, confident mapping
-  0.75–0.91 flag review, tentative mapping
-  0.50–0.74 flag review, no mapping written (too uncertain to learn from)
+  0.75â€“0.91 flag review, tentative mapping
+  0.50â€“0.74 flag review, no mapping written (too uncertain to learn from)
   < 0.50   unknown, no mapping written
 """
 
@@ -16,6 +16,7 @@ from typing import Optional
 
 import boto3
 from boto3.dynamodb.conditions import Key
+from decimal import Decimal
 
 from models import (
     THRESHOLD_SILENT, THRESHOLD_REVIEW, THRESHOLD_GUESS,
@@ -70,7 +71,8 @@ def save_receipt(receipt: dict):
 
 def get_receipt(receipt_id: str) -> Optional[dict]:
     resp = db().Table(RECEIPTS_TABLE).get_item(Key={"receipt_id": receipt_id})
-    return resp.get("Item")
+    item = resp.get("Item")
+    return _decimals_to_float(item) if item else None
 
 
 def update_receipt(receipt_id: str, **fields):
@@ -109,7 +111,7 @@ def list_receipts(user_id: str = "default",
         if not resp.get("LastEvaluatedKey"):
             break
         kwargs["ExclusiveStartKey"] = resp["LastEvaluatedKey"]
-    return items
+    return [_decimals_to_float(i) for i in items]
 
 
 def delete_receipt(receipt_id: str):
@@ -120,7 +122,7 @@ def check_and_increment_process_count(receipt_id: str) -> bool:
     """
     Cost safeguard: atomically check and increment process_count.
     Returns True if processing is allowed (count was < MAX_PROCESS_COUNT).
-    Returns False if limit reached — caller must stop and set status=failed.
+    Returns False if limit reached â€” caller must stop and set status=failed.
 
     Uses a conditional update so this is safe even if two Lambda instances
     run simultaneously (which shouldn't happen with concurrency=2, but safe anyway).
@@ -167,11 +169,34 @@ def _send_alert(message: str):
 # ITEMS
 # =============================================================================
 
+def _floats_to_decimal(obj):
+    """Recursively convert float values to Decimal for DynamoDB compatibility."""
+    if isinstance(obj, float):
+        return Decimal(str(obj))
+    elif isinstance(obj, dict):
+        return {k: _floats_to_decimal(v) for k, v in obj.items()}
+    elif isinstance(obj, list):
+        return [_floats_to_decimal(v) for v in obj]
+    return obj
+
+
 def save_items(receipt_id: str, items: list[dict]):
     table = db().Table(ITEMS_TABLE)
     with table.batch_writer() as batch:
         for item in items:
-            batch.put_item(Item={"receipt_id": receipt_id, **item})
+            clean = _floats_to_decimal(item)
+            batch.put_item(Item={"receipt_id": receipt_id, **clean})
+
+
+def _decimals_to_float(obj):
+    """Recursively convert Decimal values back to float for JSON serialisation."""
+    if isinstance(obj, Decimal):
+        return float(obj)
+    elif isinstance(obj, dict):
+        return {k: _decimals_to_float(v) for k, v in obj.items()}
+    elif isinstance(obj, list):
+        return [_decimals_to_float(v) for v in obj]
+    return obj
 
 
 def get_items(receipt_id: str) -> list[dict]:
@@ -179,26 +204,30 @@ def get_items(receipt_id: str) -> list[dict]:
         KeyConditionExpression=Key("receipt_id").eq(receipt_id)
     )
     items = resp.get("Items", [])
-    # Sort by item_seq so they appear in receipt order
+    items = [_decimals_to_float(i) for i in items]
     return sorted(items, key=lambda x: x.get("item_seq", ""))
 
 
-def update_item_category(receipt_id: str, item_seq: str, category: str):
+def update_item_category(receipt_id: str, item_seq: str, category: str, record_correction: bool = False):
+    expr = "SET category = :cat, confirmed = :yes, match_source = :src, updated_at = :ts"
+    vals = {
+        ":cat": category,
+        ":yes": True,
+        ":src": "manual",
+        ":ts":  _now()
+    }
+    if record_correction:
+        expr += ", corrected_at = :cor"
+        vals[":cor"] = _now()
     db().Table(ITEMS_TABLE).update_item(
         Key={"receipt_id": receipt_id, "item_seq": item_seq},
-        UpdateExpression="SET category = :cat, confirmed = :yes, "
-                         "match_source = :src, updated_at = :ts",
-        ExpressionAttributeValues={
-            ":cat": category,
-            ":yes": True,
-            ":src": "manual",
-            ":ts":  _now()
-        }
+        UpdateExpression=expr,
+        ExpressionAttributeValues=vals
     )
 
 
 def delete_items(receipt_id: str):
-    """Delete all items for a receipt — used before reprocessing."""
+    """Delete all items for a receipt â€” used before reprocessing."""
     items = get_items(receipt_id)
     table = db().Table(ITEMS_TABLE)
     with table.batch_writer() as batch:
@@ -210,11 +239,11 @@ def delete_items(receipt_id: str):
 
 
 # =============================================================================
-# MAPPINGS — hybrid store-scoped + global fallback
+# MAPPINGS â€” hybrid store-scoped + global fallback
 #
 # Key format:  "{store_id}#{normalized_name}"
-#   "tesco#smoked salmon"   → store-scoped
-#   "global#smoked salmon"  → global fallback (seeded)
+#   "tesco#smoked salmon"   â†’ store-scoped
+#   "global#smoked salmon"  â†’ global fallback (seeded)
 #
 # One BatchGetItem call checks both store-scoped and global simultaneously.
 # Store-scoped result takes priority over global if both exist.
@@ -248,7 +277,7 @@ def get_mapping_hybrid(store_id: str, normalized_name: str) -> Optional[dict]:
 def promote_mapping_if_ready(mapping_key: str):
     """
     Increment match_count and promote trust level if thresholds are met.
-    tentative →(3×)→ confident →(5×)→ trusted
+    tentative â†’(3Ã—)â†’ confident â†’(5Ã—)â†’ trusted
     Trusted mappings are never demoted.
     """
     table = db().Table(MAPPINGS_TABLE)
@@ -278,7 +307,7 @@ def promote_mapping_if_ready(mapping_key: str):
             UpdateExpression="SET trust = :t",
             ExpressionAttributeValues={":t": new_trust}
         )
-        logger.info("Promoted mapping %s → %s", mapping_key, new_trust)
+        logger.info("Promoted mapping %s â†’ %s", mapping_key, new_trust)
 
 
 def write_learned_mapping(store_id: str, normalized_name: str,
@@ -289,14 +318,14 @@ def write_learned_mapping(store_id: str, normalized_name: str,
     OCR strings hit Layer 1 (exact) rather than going through fuzzy matching again.
 
     Rules:
-    - confidence >= 0.92 → write as confident
-    - confidence >= 0.75 → write as tentative
-    - confidence <  0.75 → do NOT write (too uncertain to learn from)
+    - confidence >= 0.92 â†’ write as confident
+    - confidence >= 0.75 â†’ write as tentative
+    - confidence <  0.75 â†’ do NOT write (too uncertain to learn from)
     - never overwrite a trusted mapping with a fuzzy result
     - never write if store is unknown (don't know which template to update)
     """
     if confidence < THRESHOLD_REVIEW:
-        return  # below 0.75 — don't learn from this
+        return  # below 0.75 â€” don't learn from this
     if not store_id or store_id == "unknown":
         return
 
@@ -323,7 +352,7 @@ def write_learned_mapping(store_id: str, normalized_name: str,
         "created_at":      existing.get("created_at", now) if existing else now,
         "last_seen":       now
     })
-    logger.info("Learned mapping %s → %s (%.0f%%, %s)", mapping_key, category, confidence * 100, trust)
+    logger.info("Learned mapping %s â†’ %s (%.0f%%, %s)", mapping_key, category, confidence * 100, trust)
 
 
 def save_correction(store_id: str, normalized_name: str, category: str) -> dict:
@@ -331,10 +360,10 @@ def save_correction(store_id: str, normalized_name: str, category: str) -> dict:
     Save a user correction back to the mappings table.
 
     Behaviour by existing trust level:
-    - trusted + same category  → just increment match_count, no change
-    - trusted + different category → save conflict flag, return conflict info
-    - confident or tentative → overwrite with manual correction (instantly trusted)
-    - missing → create new trusted mapping
+    - trusted + same category  â†’ just increment match_count, no change
+    - trusted + different category â†’ save conflict flag, return conflict info
+    - confident or tentative â†’ overwrite with manual correction (instantly trusted)
+    - missing â†’ create new trusted mapping
 
     Returns dict with key 'conflict': True/False
     """
@@ -347,11 +376,11 @@ def save_correction(store_id: str, normalized_name: str, category: str) -> dict:
 
     if existing and existing.get("trust") == TrustLevel.TRUSTED.value:
         if existing.get("category") == category:
-            # User confirmed — just increment count
+            # User confirmed â€” just increment count
             promote_mapping_if_ready(mapping_key)
             return {"conflict": False}
         else:
-            # Conflict — save it but don't overwrite
+            # Conflict â€” save it but don't overwrite
             table.update_item(
                 Key={"mapping_key": mapping_key},
                 UpdateExpression="SET conflict_category = :c, conflict_at = :ts",
@@ -361,7 +390,7 @@ def save_correction(store_id: str, normalized_name: str, category: str) -> dict:
                            mapping_key, existing.get("category"), category)
             return {"conflict": True, "existing_category": existing.get("category")}
 
-    # Overwrite or create — manual correction is immediately trusted
+    # Overwrite or create â€” manual correction is immediately trusted
     table.put_item(Item={
         "mapping_key":     mapping_key,
         "store_id":        effective_store,
@@ -439,7 +468,7 @@ def backup_and_append_excel(exports_bucket: str, items: list[dict],
         wb  = openpyxl.load_workbook(io.BytesIO(obj["Body"].read()))
         ws  = wb.active
     except s3.exceptions.NoSuchKey:
-        # First ever run — create fresh workbook with headers
+        # First ever run â€” create fresh workbook with headers
         wb = openpyxl.Workbook()
         ws = wb.active
         ws.title = "Receipts"
@@ -457,7 +486,7 @@ def backup_and_append_excel(exports_bucket: str, items: list[dict],
         logger.info("Backup created: %s", backup)
     except Exception as e:
         logger.error("Failed to create backup %s: %s", backup, e)
-        return False  # abort — don't write master if backup failed
+        return False  # abort â€” don't write master if backup failed
 
     # Step 3: Append new rows (one row per line item)
     receipt_date    = receipt_meta.get("receipt_date", today)
@@ -514,7 +543,7 @@ def restore_backup(exports_bucket: str, backup_filename: str) -> bool:
             CopySource={"Bucket": exports_bucket, "Key": backup_filename},
             Key="master.xlsx"
         )
-        logger.info("Restored %s → master.xlsx", backup_filename)
+        logger.info("Restored %s â†’ master.xlsx", backup_filename)
         return True
     except Exception as e:
         logger.error("Failed to restore backup %s: %s", backup_filename, e)
@@ -542,3 +571,124 @@ def get_retailer(retailer_id: str) -> Optional[dict]:
 
 def save_retailer(retailer: dict):
     db().Table(RETAILERS_TABLE).put_item(Item=retailer)
+
+
+# ---------------------------------------------------------------------------
+# EXCEL EXPORT
+# ---------------------------------------------------------------------------
+import io as _io
+import re as _re_exp
+
+MASTER_XLSX = "exports/master.xlsx"
+
+
+def _parse_price(price_str):
+    if not price_str:
+        return 0.0
+    cleaned = _re_exp.sub(r"[^\d.]", "", str(price_str))
+    try:
+        return float(cleaned)
+    except ValueError:
+        return 0.0
+
+
+def receipt_export_ready(receipt_id: str) -> bool:
+    items = get_items(receipt_id)
+    if not items:
+        return False
+    for item in items:
+        needs_review = item.get("needs_review", False)
+        confirmed    = item.get("confirmed", False)
+        confidence   = float(item.get("match_confidence", 0))
+        source       = item.get("match_source", "unknown")
+        exact        = source in ("store_exact", "global_exact") and confidence >= 1.0
+        if not exact and not confirmed:
+            return False
+    return True
+
+
+def export_receipt_to_excel(receipt_id: str, exports_bucket: str):
+    from openpyxl import Workbook, load_workbook
+    from openpyxl.styles import Font, PatternFill, Alignment
+    from openpyxl.utils import get_column_letter
+
+    receipt = get_receipt(receipt_id)
+    items   = get_items(receipt_id)
+    if not receipt or not items:
+        return None
+
+    s3c = boto3.client("s3")
+
+    try:
+        obj = s3c.get_object(Bucket=exports_bucket, Key=MASTER_XLSX)
+        wb  = load_workbook(_io.BytesIO(obj["Body"].read()))
+        ws  = wb.active
+        is_new = False
+    except Exception:
+        wb     = Workbook()
+        ws     = wb.active
+        ws.title = "Grocery Items"
+        is_new = True
+
+    HEADERS = [
+        "Date", "Store", "Receipt ID",
+        "Item Name", "Normalised Name",
+        "Category", "Original Category",
+        "Price (GBP)", "Quantity",
+        "Confidence %", "Matched Keyword", "Match Source",
+        "Corrected", "Corrected At", "Exported At"
+    ]
+
+    if is_new or ws.cell(1, 1).value != "Date":
+        for col, header in enumerate(HEADERS, 1):
+            cell = ws.cell(row=1, column=col, value=header)
+            cell.font      = Font(bold=True, color="FFFFFF")
+            cell.fill      = PatternFill("solid", fgColor="2E4057")
+            cell.alignment = Alignment(horizontal="center")
+        widths = [12,15,38,30,25,18,18,10,10,14,25,14,10,20,20]
+        for col, width in enumerate(widths, 1):
+            ws.column_dimensions[get_column_letter(col)].width = width
+
+    receipt_date = receipt.get("receipt_date", "")
+    store_name   = receipt.get("retailer_name") or receipt.get("retailer_id", "")
+    exported_at  = datetime.now(timezone.utc).strftime("%Y-%m-%d %H:%M")
+
+    for item in items:
+        conf_pct  = round(float(item.get("match_confidence", 0)) * 100, 1)
+        corrected = "Yes" if item.get("confirmed") and item.get("match_source") == "manual" else "No"
+        ws.append([
+            receipt_date, store_name, receipt_id,
+            item.get("raw_name", ""),
+            item.get("normalized_name", ""),
+            item.get("category", ""),
+            item.get("original_category", ""),
+            _parse_price(item.get("price", "0")),
+            item.get("quantity", "1"),
+            conf_pct,
+            item.get("matched_keyword", ""),
+            item.get("match_source", ""),
+            corrected,
+            item.get("corrected_at", ""),
+            exported_at,
+        ])
+
+    buf = _io.BytesIO()
+    wb.save(buf)
+    buf.seek(0)
+    s3c.put_object(
+        Bucket=exports_bucket,
+        Key=MASTER_XLSX,
+        Body=buf.getvalue(),
+        ContentType="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"
+    )
+
+    now = datetime.now(timezone.utc).isoformat()
+    for item in items:
+        db().Table(ITEMS_TABLE).update_item(
+            Key={"receipt_id": receipt_id, "item_seq": item["item_seq"]},
+            UpdateExpression="SET exported_to_excel = :t, exported_at = :ts, export_filename = :fn",
+            ExpressionAttributeValues={":t": True, ":ts": now, ":fn": MASTER_XLSX}
+        )
+
+    logger.info(f"Exported {len(items)} items from {receipt_id} to {MASTER_XLSX}")
+    return MASTER_XLSX

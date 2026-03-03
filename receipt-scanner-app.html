@@ -1,0 +1,513 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Receipt Scanner</title>
+<link href="https://fonts.googleapis.com/css2?family=DM+Sans:wght@300;400;500;600&family=DM+Mono:wght@400;500&display=swap" rel="stylesheet">
+<style>
+:root {
+  --bg:#F7F6F3; --surface:#FFFFFF; --surface2:#F0EFEB; --border:#E5E3DC;
+  --text:#1A1916; --text2:#6B6860; --text3:#9B9A94;
+  --accent:#2A6049; --accent-light:#EAF2EE;
+  --warning:#D68910; --warning-light:#FEF9E7;
+  --danger:#C0392B; --danger-light:#FDECEA;
+  --success:#27AE60; --success-light:#EAFAF1;
+  --shadow:0 1px 3px rgba(0,0,0,0.06); --shadow-md:0 4px 12px rgba(0,0,0,0.08);
+  --shadow-lg:0 12px 32px rgba(0,0,0,0.10);
+  --radius:10px; --radius-sm:6px; --radius-lg:16px;
+}
+*{box-sizing:border-box;margin:0;padding:0}
+body{font-family:'DM Sans',sans-serif;background:var(--bg);color:var(--text);min-height:100vh;font-size:14px;line-height:1.5}
+.app{display:flex;height:100vh;overflow:hidden}
+.sidebar{width:220px;flex-shrink:0;background:var(--surface);border-right:1px solid var(--border);display:flex;flex-direction:column}
+.sidebar-logo{padding:20px 20px 16px;border-bottom:1px solid var(--border)}
+.logo-mark{display:flex;align-items:center;gap:10px}
+.logo-icon{width:32px;height:32px;background:var(--accent);border-radius:8px;display:flex;align-items:center;justify-content:center;color:white;font-size:16px}
+.logo-text{font-size:15px;font-weight:600;letter-spacing:-0.3px}
+.logo-sub{font-size:11px;color:var(--text3)}
+.sidebar-nav{flex:1;padding:12px 10px;display:flex;flex-direction:column;gap:2px}
+.nav-item{display:flex;align-items:center;gap:10px;padding:8px 10px;border-radius:var(--radius-sm);cursor:pointer;color:var(--text2);font-size:13.5px;font-weight:500;transition:all 0.15s;border:none;background:none;width:100%;text-align:left;font-family:inherit}
+.nav-item:hover{background:var(--surface2);color:var(--text)}
+.nav-item.active{background:var(--accent-light);color:var(--accent)}
+.sidebar-footer{padding:12px 10px;border-top:1px solid var(--border)}
+.main{flex:1;overflow:hidden;display:flex;flex-direction:column}
+.topbar{height:56px;background:var(--surface);border-bottom:1px solid var(--border);display:flex;align-items:center;padding:0 24px;gap:16px;flex-shrink:0}
+.topbar-title{font-size:15px;font-weight:600;flex:1}
+.content{flex:1;overflow-y:auto;padding:24px}
+.view{display:none}.view.active{display:block}
+.btn{display:inline-flex;align-items:center;gap:6px;padding:7px 14px;border-radius:var(--radius-sm);font-family:inherit;font-size:13px;font-weight:500;cursor:pointer;border:none;transition:all 0.15s;white-space:nowrap}
+.btn-primary{background:var(--accent);color:white}.btn-primary:hover{background:#235240}
+.btn-secondary{background:var(--surface);color:var(--text);border:1px solid var(--border)}.btn-secondary:hover{background:var(--surface2)}
+.btn-sm{padding:5px 10px;font-size:12px}
+.btn:disabled{opacity:0.5;cursor:not-allowed}
+.stats-grid{display:grid;grid-template-columns:repeat(4,1fr);gap:16px;margin-bottom:24px}
+.stat-card{background:var(--surface);border:1px solid var(--border);border-radius:var(--radius);padding:16px 20px;box-shadow:var(--shadow)}
+.stat-label{font-size:11px;font-weight:600;color:var(--text3);text-transform:uppercase;letter-spacing:0.5px;margin-bottom:6px}
+.stat-value{font-size:26px;font-weight:600;letter-spacing:-0.5px;font-family:'DM Mono',monospace}
+.stat-sub{font-size:11px;color:var(--text3);margin-top:2px}
+.receipt-list{display:flex;flex-direction:column;gap:8px}
+.receipt-row{background:var(--surface);border:1px solid var(--border);border-radius:var(--radius);padding:14px 18px;display:flex;align-items:center;gap:16px;cursor:pointer;transition:all 0.15s;box-shadow:var(--shadow)}
+.receipt-row:hover{border-color:var(--accent);box-shadow:var(--shadow-md);transform:translateY(-1px)}
+.receipt-store{font-weight:600;font-size:14px;min-width:140px}
+.receipt-date{font-size:12px;color:var(--text3);font-family:'DM Mono',monospace;min-width:100px}
+.receipt-items{font-size:12px;color:var(--text2);min-width:70px}
+.receipt-total{font-family:'DM Mono',monospace;font-size:14px;font-weight:500;min-width:80px}
+.receipt-spacer{flex:1}
+.badge{display:inline-flex;align-items:center;gap:4px;padding:2px 8px;border-radius:20px;font-size:11px;font-weight:600}
+.badge-green{background:var(--success-light);color:var(--success)}
+.badge-yellow{background:var(--warning-light);color:var(--warning)}
+.badge-red{background:var(--danger-light);color:var(--danger)}
+.badge-grey{background:var(--surface2);color:var(--text3)}
+.badge-blue{background:#EBF5FB;color:#2980B9}
+.back-btn{display:flex;align-items:center;gap:6px;font-size:13px;color:var(--text2);cursor:pointer;padding:4px 0;border:none;background:none;font-family:inherit;margin-bottom:16px;transition:color 0.15s}
+.back-btn:hover{color:var(--accent)}
+.detail-store{font-size:22px;font-weight:600;letter-spacing:-0.4px;margin-bottom:4px}
+.detail-meta{display:flex;gap:16px;font-size:13px;color:var(--text2);flex-wrap:wrap;margin-bottom:12px}
+.progress-bar{height:4px;background:var(--surface2);border-radius:2px;margin-bottom:4px;overflow:hidden}
+.progress-fill{height:100%;background:var(--accent);border-radius:2px;transition:width 0.3s}
+.progress-label{font-size:11px;color:var(--text3);margin-bottom:16px}
+.review-banner{background:var(--warning-light);border:1px solid #F9E4A0;border-radius:var(--radius-sm);padding:10px 14px;font-size:13px;color:var(--warning);display:flex;align-items:center;gap:8px;margin-bottom:16px}
+.export-banner{background:var(--success-light);border:1px solid #A9DFBF;border-radius:var(--radius-sm);padding:10px 14px;font-size:13px;color:var(--success);display:flex;align-items:center;gap:8px;margin-bottom:16px}
+.items-table{width:100%;border-collapse:separate;border-spacing:0;background:var(--surface);border:1px solid var(--border);border-radius:var(--radius);overflow:hidden;box-shadow:var(--shadow)}
+.items-table th{padding:10px 14px;font-size:11px;font-weight:600;color:var(--text3);text-transform:uppercase;letter-spacing:0.4px;background:var(--surface2);border-bottom:1px solid var(--border);text-align:left;white-space:nowrap}
+.items-table td{padding:11px 14px;border-bottom:1px solid var(--border);font-size:13px;vertical-align:middle}
+.items-table tr:last-child td{border-bottom:none}
+.items-table tr:hover td{background:var(--bg)}
+.item-name{font-weight:500}
+.item-norm{font-size:11px;color:var(--text3);font-family:'DM Mono',monospace;margin-top:2px}
+.tag{display:inline-block;padding:2px 8px;border-radius:4px;font-size:12px;background:var(--surface2);color:var(--text2);border:1px solid var(--border)}
+.conf-bar{display:flex;align-items:center;gap:8px}
+.conf-track{width:60px;height:4px;background:var(--surface2);border-radius:2px;overflow:hidden;flex-shrink:0}
+.conf-fill{height:100%;border-radius:2px}
+.conf-pct{font-family:'DM Mono',monospace;font-size:12px;color:var(--text2);min-width:32px}
+.cat-wrap{position:relative;display:inline-block;min-width:170px}
+.cat-input{width:100%;padding:5px 10px;border:1px solid var(--border);border-radius:var(--radius-sm);font-family:inherit;font-size:12px;background:var(--surface);color:var(--text);outline:none;transition:border-color 0.15s}
+.cat-input:focus{border-color:var(--accent)}
+.cat-dropdown{position:absolute;top:calc(100% + 2px);left:0;right:0;background:var(--surface);border:1px solid var(--border);border-radius:var(--radius-sm);box-shadow:var(--shadow-md);z-index:100;max-height:200px;overflow-y:auto;display:none}
+.cat-dropdown.open{display:block}
+.cat-option{padding:7px 10px;font-size:12px;cursor:pointer;transition:background 0.1s}
+.cat-option:hover,.cat-option.active{background:var(--accent-light);color:var(--accent)}
+.audit-btn{padding:3px 7px;font-size:11px;border:1px solid var(--border);border-radius:4px;background:none;color:var(--text3);cursor:pointer;font-family:'DM Mono',monospace;transition:all 0.15s}
+.audit-btn:hover{border-color:var(--accent);color:var(--accent);background:var(--accent-light)}
+.audit-panel{background:var(--surface2);border:1px solid var(--border);border-radius:var(--radius-sm);padding:10px 12px;font-size:11px;font-family:'DM Mono',monospace;color:var(--text2);line-height:2;display:none;margin-top:6px;white-space:pre}
+.audit-panel.open{display:block}
+.modal-overlay{position:fixed;inset:0;background:rgba(0,0,0,0.3);display:none;align-items:center;justify-content:center;z-index:200;backdrop-filter:blur(2px)}
+.modal-overlay.open{display:flex}
+.modal{background:var(--surface);border-radius:var(--radius-lg);padding:28px;width:480px;max-width:95vw;box-shadow:var(--shadow-lg);animation:modalIn 0.2s ease}
+@keyframes modalIn{from{opacity:0;transform:translateY(8px)}to{opacity:1;transform:translateY(0)}}
+.modal-title{font-size:17px;font-weight:600;margin-bottom:4px;letter-spacing:-0.3px}
+.modal-sub{font-size:13px;color:var(--text2);margin-bottom:20px}
+.form-group{margin-bottom:16px}
+.form-label{display:block;font-size:11px;font-weight:600;color:var(--text2);margin-bottom:6px;text-transform:uppercase;letter-spacing:0.4px}
+.form-select{width:100%;padding:8px 12px;border:1px solid var(--border);border-radius:var(--radius-sm);font-family:inherit;font-size:13px;background:var(--surface);color:var(--text);outline:none}
+.drop-zone{border:2px dashed var(--border);border-radius:var(--radius);padding:32px 20px;text-align:center;cursor:pointer;transition:all 0.15s;background:var(--bg)}
+.drop-zone:hover,.drop-zone.drag-over{border-color:var(--accent);background:var(--accent-light)}
+.drop-icon{font-size:28px;margin-bottom:8px}
+.drop-text{font-size:13px;color:var(--text2)}
+.drop-sub{font-size:11px;color:var(--text3);margin-top:4px}
+.drop-preview{width:100%;max-height:180px;object-fit:contain;border-radius:var(--radius-sm);margin-top:8px}
+.modal-actions{display:flex;gap:8px;justify-content:flex-end;margin-top:20px;padding-top:16px;border-top:1px solid var(--border)}
+.proc-overlay{position:fixed;inset:0;background:rgba(247,246,243,0.88);display:none;align-items:center;justify-content:center;z-index:300;flex-direction:column}
+.proc-overlay.open{display:flex}
+.proc-card{background:var(--surface);border:1px solid var(--border);border-radius:var(--radius-lg);padding:32px 40px;text-align:center;box-shadow:var(--shadow-lg);min-width:280px}
+.proc-spinner{width:36px;height:36px;border:3px solid var(--border);border-top-color:var(--accent);border-radius:50%;animation:spin 0.8s linear infinite;margin:0 auto 16px}
+.proc-title{font-size:15px;font-weight:600;margin-bottom:4px}
+.proc-sub{font-size:13px;color:var(--text2)}
+@keyframes spin{to{transform:rotate(360deg)}}
+.toast-wrap{position:fixed;bottom:20px;right:20px;display:flex;flex-direction:column;gap:8px;z-index:999}
+.toast{background:var(--text);color:white;padding:10px 16px;border-radius:var(--radius-sm);font-size:13px;box-shadow:var(--shadow-md);animation:toastIn 0.2s ease;max-width:320px}
+.toast.success{background:var(--accent)}.toast.error{background:var(--danger)}.toast.warning{background:#C4763A}
+@keyframes toastIn{from{opacity:0;transform:translateX(12px)}to{opacity:1;transform:translateX(0)}}
+.empty{text-align:center;padding:60px 20px;color:var(--text3)}
+.empty-icon{font-size:36px;margin-bottom:12px}
+.empty-title{font-size:15px;font-weight:600;color:var(--text2);margin-bottom:4px}
+.sec-header{display:flex;align-items:center;justify-content:space-between;margin-bottom:14px}
+.sec-title{font-size:13px;font-weight:600;color:var(--text2);text-transform:uppercase;letter-spacing:0.5px}
+::-webkit-scrollbar{width:5px}::-webkit-scrollbar-track{background:transparent}::-webkit-scrollbar-thumb{background:var(--border);border-radius:3px}
+</style>
+</head>
+<body>
+<div class="app">
+  <aside class="sidebar">
+    <div class="sidebar-logo">
+      <div class="logo-mark">
+        <div class="logo-icon">🧾</div>
+        <div>
+          <div class="logo-text">Receipt Scanner</div>
+          <div class="logo-sub">Grocery tracker</div>
+        </div>
+      </div>
+    </div>
+    <nav class="sidebar-nav">
+      <button class="nav-item active" id="nav-dashboard" onclick="showView('dashboard')"><span>◎</span> Dashboard</button>
+      <button class="nav-item" id="nav-receipts" onclick="showView('receipts')"><span>≡</span> Receipts</button>
+    </nav>
+    <div class="sidebar-footer">
+      <button class="btn btn-primary" style="width:100%" onclick="openScanModal()">+ Scan Receipt</button>
+    </div>
+  </aside>
+
+  <main class="main">
+    <div class="topbar">
+      <div class="topbar-title" id="topbar-title">Dashboard</div>
+      <div id="topbar-actions"></div>
+    </div>
+    <div class="content">
+
+      <div class="view active" id="view-dashboard">
+        <div class="stats-grid">
+          <div class="stat-card"><div class="stat-label">Total Receipts</div><div class="stat-value" id="s-total">—</div><div class="stat-sub">all time</div></div>
+          <div class="stat-card"><div class="stat-label">Need Review</div><div class="stat-value" id="s-review" style="color:var(--warning)">—</div><div class="stat-sub">awaiting action</div></div>
+          <div class="stat-card"><div class="stat-label">Exported</div><div class="stat-value" id="s-exported" style="color:var(--accent)">—</div><div class="stat-sub">in master.xlsx</div></div>
+          <div class="stat-card"><div class="stat-label">Total Spend</div><div class="stat-value" id="s-spend">—</div><div class="stat-sub">across all receipts</div></div>
+        </div>
+        <div class="sec-header">
+          <div class="sec-title">Recent Receipts</div>
+          <button class="btn btn-secondary btn-sm" onclick="showView('receipts')">View all →</button>
+        </div>
+        <div id="dash-list"></div>
+      </div>
+
+      <div class="view" id="view-receipts">
+        <div class="sec-header">
+          <div class="sec-title">All Receipts</div>
+          <button class="btn btn-primary btn-sm" onclick="openScanModal()">+ Scan Receipt</button>
+        </div>
+        <div id="receipts-list"></div>
+      </div>
+
+      <div class="view" id="view-detail">
+        <button class="back-btn" onclick="showView('receipts')">← Back to receipts</button>
+        <div id="detail-content"></div>
+      </div>
+
+    </div>
+  </main>
+</div>
+
+<div class="modal-overlay" id="scan-modal">
+  <div class="modal">
+    <div class="modal-title">Scan New Receipt</div>
+    <div class="modal-sub">Upload a photo to automatically extract and categorise items.</div>
+    <div class="form-group">
+      <label class="form-label">Store</label>
+      <select class="form-select" id="scan-store">
+        <option value="unknown">Auto-detect from receipt</option>
+      </select>
+    </div>
+    <div class="form-group">
+      <label class="form-label">Receipt Photo</label>
+      <div class="drop-zone" id="drop-zone" onclick="document.getElementById('file-input').click()">
+        <div class="drop-icon">📷</div>
+        <div class="drop-text">Click to upload or drag &amp; drop</div>
+        <div class="drop-sub">JPG or PNG</div>
+      </div>
+      <input type="file" id="file-input" accept="image/*" style="display:none" onchange="onFileSelect(event)">
+    </div>
+    <div class="modal-actions">
+      <button class="btn btn-secondary" onclick="closeScanModal()">Cancel</button>
+      <button class="btn btn-primary" id="scan-btn" onclick="startScan()" disabled>Upload &amp; Scan</button>
+    </div>
+  </div>
+</div>
+
+<div class="proc-overlay" id="proc-overlay">
+  <div class="proc-card">
+    <div class="proc-spinner"></div>
+    <div class="proc-title" id="proc-title">Uploading…</div>
+    <div class="proc-sub" id="proc-sub">Please wait</div>
+  </div>
+</div>
+
+<div class="toast-wrap" id="toasts"></div>
+
+<script>
+const API = 'https://orx5k6bt7l.execute-api.eu-west-2.amazonaws.com/dev';
+const KEY = 'v64V6hztQR9g5iQSl0MS27ROwLpZMc7V3k78UpYI';
+const CATS = ['baby-products','bakery','beverages','bread-bakery','canned-goods','cleaning','confectionery','dairy','deli','drinks','eggs','fish-seafood','frozen','fruits','grains','health-beauty','herbs-spices','household','meat-poultry','nuts-seeds','oil-vinegar','other','pasta-rice','pet-food','produce','sauces-condiments','snacks','spices','spreads','vegetables'];
+
+let selectedFile = null;
+let currentReceiptId = null;
+let pendingCorrections = {};
+
+async function apiFetch(path, opts={}) {
+  const res = await fetch(`${API}${path}`, {
+    ...opts, headers:{'X-Api-Key':KEY,'Content-Type':'application/json',...(opts.headers||{})}
+  });
+  if (!res.ok) throw new Error(`${res.status}`);
+  return res.json();
+}
+
+function toast(msg, type='') {
+  const el = document.createElement('div');
+  el.className = `toast ${type}`;
+  el.textContent = msg;
+  document.getElementById('toasts').appendChild(el);
+  setTimeout(()=>el.remove(), 3500);
+}
+
+function showView(name) {
+  document.querySelectorAll('.view').forEach(v=>v.classList.remove('active'));
+  document.querySelectorAll('.nav-item').forEach(n=>n.classList.remove('active'));
+  document.getElementById(`view-${name}`).classList.add('active');
+  const nav = document.getElementById(`nav-${name}`);
+  if (nav) nav.classList.add('active');
+  document.getElementById('topbar-title').textContent = {dashboard:'Dashboard',receipts:'Receipts',detail:'Receipt Detail'}[name]||name;
+  document.getElementById('topbar-actions').innerHTML = '';
+  if (name==='dashboard') loadDashboard();
+  if (name==='receipts') loadReceipts();
+}
+
+async function loadDashboard() {
+  try {
+    const d = await apiFetch('/receipts');
+    const rs = d.receipts||[];
+    document.getElementById('s-total').textContent    = rs.length;
+    document.getElementById('s-review').textContent   = rs.filter(r=>r.status==='needs_review').length;
+    document.getElementById('s-exported').textContent = rs.filter(r=>r.status==='completed').length;
+    let spend=0;
+    rs.forEach(r=>{ const n=parseFloat(String(r.total_amount||'').replace(/[^\d.]/g,'')); if(!isNaN(n)) spend+=n; });
+    document.getElementById('s-spend').textContent = spend>0?`£${spend.toFixed(2)}`:'—';
+    document.getElementById('dash-list').innerHTML = rs.length ? renderList(rs.slice(0,6)) : emptyState('No receipts yet','Scan your first receipt to get started');
+  } catch(e) { toast('Failed to load dashboard','error'); }
+}
+
+async function loadReceipts() {
+  document.getElementById('receipts-list').innerHTML = loadingHtml('Loading receipts…');
+  try {
+    const d = await apiFetch('/receipts');
+    const rs = d.receipts||[];
+    document.getElementById('receipts-list').innerHTML = rs.length ? renderList(rs) : emptyState('No receipts yet','Scan your first receipt to get started');
+  } catch(e) { toast('Failed to load receipts','error'); }
+}
+
+function renderList(rs) {
+  const badge = r => ({
+    completed:   `<span class="badge badge-green">● Complete</span>`,
+    needs_review:`<span class="badge badge-yellow">● Needs review</span>`,
+    processing:  `<span class="badge badge-blue">● Processing</span>`,
+    pending:     `<span class="badge badge-grey">Pending</span>`,
+    failed:      `<span class="badge badge-red">Failed</span>`,
+  }[r.status]||`<span class="badge badge-grey">${r.status}</span>`);
+
+  return `<div class="receipt-list">${rs.map(r=>`
+    <div class="receipt-row" onclick="openReceipt('${r.receipt_id}')">
+      <div class="receipt-store">${r.retailer_name||r.retailer_id||'Unknown'}</div>
+      <div class="receipt-date">${fmtDate(r.receipt_date)}</div>
+      <div class="receipt-items">${r.item_count?Math.round(r.item_count)+' items':''}</div>
+      <div class="receipt-total">${r.total_amount||'—'}</div>
+      <div class="receipt-spacer"></div>
+      ${badge(r)}
+      <span style="color:var(--text3);font-size:16px;margin-left:4px">›</span>
+    </div>`).join('')}</div>`;
+}
+
+async function openReceipt(id) {
+  currentReceiptId = id;
+  pendingCorrections = {};
+  showView('detail');
+  document.getElementById('detail-content').innerHTML = loadingHtml('Loading receipt…');
+  try {
+    const d = await apiFetch(`/receipts/${id}`);
+    renderDetail(d.receipt, d.items||[]);
+  } catch(e) { toast('Failed to load receipt','error'); }
+}
+
+function renderDetail(receipt, items) {
+  const needsRev   = items.filter(i=>i.needs_review&&!i.confirmed).length;
+  const reviewed   = items.filter(i=>!i.needs_review||i.confirmed).length;
+  const pct        = items.length?Math.round(reviewed/items.length*100):0;
+  const allExported= items.length>0&&items.every(i=>i.exported_to_excel);
+
+  document.getElementById('topbar-actions').innerHTML = needsRev>0
+    ?`<button class="btn btn-primary btn-sm" onclick="submitCorrections()">Save corrections</button>`:'';
+
+  const banner = allExported
+    ?`<div class="export-banner">✓ All items exported to master.xlsx</div>`
+    : needsRev>0
+    ?`<div class="review-banner">⚠ ${needsRev} item${needsRev>1?'s':''} need your review before export</div>`
+    :`<div class="export-banner">✓ All items reviewed — export will trigger automatically</div>`;
+
+  document.getElementById('detail-content').innerHTML = `
+    <div style="margin-bottom:20px">
+      <div class="detail-store">${receipt.retailer_name||receipt.retailer_id||'Unknown'}</div>
+      <div class="detail-meta">
+        <span>📅 ${fmtDate(receipt.receipt_date)}</span>
+        <span>💰 ${receipt.total_amount||'—'}</span>
+        <span>🛒 ${items.length} items</span>
+      </div>
+      <div class="progress-bar"><div class="progress-fill" style="width:${pct}%"></div></div>
+      <div class="progress-label">${pct}% reviewed · ${needsRev} remaining</div>
+    </div>
+    ${banner}
+    <table class="items-table">
+      <thead><tr>
+        <th>Item</th><th>Category</th><th>Price</th><th>Confidence</th><th>Audit</th>
+      </tr></thead>
+      <tbody>${items.map(item=>renderRow(item)).join('')}</tbody>
+    </table>`;
+}
+
+function renderRow(item) {
+  const conf      = Math.round((item.match_confidence||0)*100);
+  const needsRev  = item.needs_review&&!item.confirmed;
+  const confColor = conf>=92?'var(--success)':conf>=75?'var(--warning)':conf>=50?'#E67E22':'var(--danger)';
+  const rowStyle  = needsRev?'background:#FFFDF5':item.confirmed?'background:#F9FFFE':'';
+  const badge     = needsRev
+    ?`<span class="badge badge-yellow">Review</span>`
+    :item.confirmed
+    ?`<span class="badge badge-green">✓ Fixed</span>`
+    :`<span class="badge badge-green">✓ Auto</span>`;
+
+  const audit = [
+    item.matched_keyword  ?`matched:    "${item.matched_keyword}"`:null,
+    item.normalized_name  ?`normalised: "${item.normalized_name}"`:null,
+    item.match_source     ?`source:     ${item.match_source}`:null,
+    item.review_reason    ?`reason:     ${item.review_reason}`:null,
+    item.price_raw        ?`raw price:  ${item.price_raw}`:null,
+    item.original_category&&item.original_category!==item.category?`original:   ${item.original_category}`:null,
+    item.exported_to_excel?`exported:   ${item.exported_at||'yes'}`:`exported:   not yet`,
+  ].filter(Boolean).join('\n');
+
+  const catCell = needsRev?`
+    <div class="cat-wrap">
+      <input type="text" class="cat-input" id="ci-${item.item_seq}"
+        value="${pendingCorrections[item.item_seq]||item.category}"
+        oninput="filterCats('${item.item_seq}',this.value)"
+        onfocus="openDrop('${item.item_seq}')"
+        onblur="setTimeout(()=>closeDrop('${item.item_seq}'),160)"
+        autocomplete="off">
+      <div class="cat-dropdown" id="cd-${item.item_seq}">
+        ${CATS.map(c=>`<div class="cat-option${c===item.category?' active':''}" onmousedown="pickCat('${item.item_seq}','${c}')">${c}</div>`).join('')}
+      </div>
+    </div>`:`<span class="tag">${item.category}</span>`;
+
+  return `<tr style="${rowStyle}" id="row-${item.item_seq}">
+    <td><div class="item-name">${item.raw_name}</div><div class="item-norm">${item.normalized_name||''}</div></td>
+    <td>${catCell}</td>
+    <td><span style="font-family:'DM Mono',monospace">${item.price||'—'}</span>${item.quantity&&item.quantity!=='1'?`<span style="font-size:11px;color:var(--text3);margin-left:4px">×${item.quantity}</span>`:''}</td>
+    <td>
+      <div class="conf-bar">
+        <div class="conf-track"><div class="conf-fill" style="width:${conf}%;background:${confColor}"></div></div>
+        <span class="conf-pct">${conf}%</span>
+        ${badge}
+      </div>
+    </td>
+    <td>
+      <button class="audit-btn" onclick="toggleAudit('${item.item_seq}')">info</button>
+      <div class="audit-panel" id="ap-${item.item_seq}">${audit}</div>
+    </td>
+  </tr>`;
+}
+
+function filterCats(seq, q) {
+  const dd = document.getElementById(`cd-${seq}`);
+  if (!dd) return;
+  dd.innerHTML = CATS.filter(c=>c.includes(q.toLowerCase()))
+    .map(c=>`<div class="cat-option" onmousedown="pickCat('${seq}','${c}')">${c}</div>`).join('');
+  openDrop(seq);
+}
+function openDrop(seq)  { document.getElementById(`cd-${seq}`)?.classList.add('open'); }
+function closeDrop(seq) { document.getElementById(`cd-${seq}`)?.classList.remove('open'); }
+function pickCat(seq, cat) {
+  pendingCorrections[seq] = cat;
+  const el = document.getElementById(`ci-${seq}`);
+  if (el) el.value = cat;
+  closeDrop(seq);
+  document.getElementById('topbar-actions').innerHTML =
+    `<button class="btn btn-primary btn-sm" onclick="submitCorrections()">Save corrections</button>`;
+}
+function toggleAudit(seq) { document.getElementById(`ap-${seq}`)?.classList.toggle('open'); }
+
+async function submitCorrections() {
+  const entries = Object.entries(pendingCorrections);
+  if (!entries.length) { toast('No corrections to save','warning'); return; }
+  try {
+    const res = await apiFetch(`/receipts/${currentReceiptId}/confirm`, {
+      method:'POST',
+      body:JSON.stringify({items:entries.map(([item_seq,category])=>({item_seq,category}))})
+    });
+    toast(`${entries.length} correction${entries.length>1?'s':''} saved`,'success');
+    if (res.exported) toast('Receipt exported to master.xlsx ✓','success');
+    pendingCorrections = {};
+    await openReceipt(currentReceiptId);
+  } catch(e) { toast('Failed to save corrections','error'); }
+}
+
+async function openScanModal() {
+  document.getElementById('scan-modal').classList.add('open');
+  try {
+    const d = await apiFetch('/retailers');
+    const sel = document.getElementById('scan-store');
+    sel.innerHTML = '<option value="unknown">Auto-detect from receipt</option>';
+    (d.retailers||[]).forEach(r=>{ const o=document.createElement('option'); o.value=r.retailer_id; o.textContent=r.name; sel.appendChild(o); });
+  } catch(e) {}
+}
+
+function closeScanModal() {
+  document.getElementById('scan-modal').classList.remove('open');
+  selectedFile=null;
+  document.getElementById('drop-zone').innerHTML=`<div class="drop-icon">📷</div><div class="drop-text">Click to upload or drag &amp; drop</div><div class="drop-sub">JPG or PNG</div>`;
+  document.getElementById('scan-btn').disabled=true;
+  document.getElementById('file-input').value='';
+}
+
+function onFileSelect(e) {
+  const f=e.target.files[0]; if(!f) return;
+  selectedFile=f;
+  const url=URL.createObjectURL(f);
+  document.getElementById('drop-zone').innerHTML=`<img src="${url}" class="drop-preview"><div class="drop-sub" style="margin-top:8px">${f.name}</div>`;
+  document.getElementById('scan-btn').disabled=false;
+}
+
+const dz=document.getElementById('drop-zone');
+dz.addEventListener('dragover',e=>{e.preventDefault();dz.classList.add('drag-over')});
+dz.addEventListener('dragleave',()=>dz.classList.remove('drag-over'));
+dz.addEventListener('drop',e=>{
+  e.preventDefault();dz.classList.remove('drag-over');
+  const f=e.dataTransfer.files[0];
+  if(f){selectedFile=f;const url=URL.createObjectURL(f);
+    document.getElementById('drop-zone').innerHTML=`<img src="${url}" class="drop-preview"><div class="drop-sub" style="margin-top:8px">${f.name}</div>`;
+    document.getElementById('scan-btn').disabled=false;}
+});
+
+async function startScan() {
+  if(!selectedFile) return;
+  const storeId=document.getElementById('scan-store').value;
+  closeScanModal();
+  showProc('Uploading receipt…','Sending photo to server');
+  try {
+    const resp=await apiFetch('/receipts/upload-url',{method:'POST',
+      body:JSON.stringify({filename:selectedFile.name,store_id:storeId,content_type:selectedFile.type||'image/jpeg'})});
+    const receiptId=resp.receipt_id;
+
+    updateProc('Uploading photo…','Sending to S3');
+    await fetch(resp.upload_url,{method:'PUT',body:selectedFile,headers:{'Content-Type':selectedFile.type||'image/jpeg'}});
+
+    updateProc('Processing receipt…','Textract is reading your receipt');
+    let status='pending',attempts=0;
+    while(['pending','processing'].includes(status)&&attempts<24){
+      await sleep(5000);attempts++;
+      try{const r=await apiFetch(`/receipts/${receiptId}`);status=r.receipt?.status;}catch(e){}
+      updateProc('Processing receipt…',`Analysing items… (${attempts*5}s)`);
+    }
+    hideProc();
+    if(status==='failed'){toast('Processing failed — please try again','error');return;}
+    toast('Receipt scanned successfully!','success');
+    openReceipt(receiptId);
+  } catch(e){hideProc();toast('Scan failed: '+e.message,'error');}
+}
+
+function showProc(t,s){document.getElementById('proc-title').textContent=t;document.getElementById('proc-sub').textContent=s;document.getElementById('proc-overlay').classList.add('open');}
+function updateProc(t,s){document.getElementById('proc-title').textContent=t;document.getElementById('proc-sub').textContent=s;}
+function hideProc(){document.getElementById('proc-overlay').classList.remove('open');}
+function fmtDate(d){try{return new Date(d).toLocaleDateString('en-GB',{day:'numeric',month:'short',year:'numeric'});}catch{return d||'—';}}
+function sleep(ms){return new Promise(r=>setTimeout(r,ms));}
+function loadingHtml(msg=''){return `<div style="text-align:center;padding:48px;color:var(--text3)"><div style="width:22px;height:22px;border:2px solid var(--border);border-top-color:var(--accent);border-radius:50%;animation:spin 0.8s linear infinite;margin:0 auto 12px"></div>${msg?`<div style="font-size:13px">${msg}</div>`:''}</div>`;}
+function emptyState(t,s){return `<div class="empty"><div class="empty-icon">🧾</div><div class="empty-title">${t}</div><div style="font-size:13px">${s}</div></div>`;}
+
+loadDashboard();
+</script>
+</body>
+</html>

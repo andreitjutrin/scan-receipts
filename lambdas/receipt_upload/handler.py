@@ -1,4 +1,4 @@
-"""
+﻿"""
 Upload Lambda
 Creates a pending receipt record and returns a presigned S3 URL
 so the browser/phone can upload the photo directly to S3.
