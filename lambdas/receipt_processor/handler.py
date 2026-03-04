@@ -89,13 +89,16 @@ def match_item(normalized: str, store_id: str, strip_prefixes: list):
     if hit:
         item_type_id = hit.get("item_type_id")   # don't fall back to normalized
         if not item_type_id:
-            # Old mapping without item_type_id — infer from keyword matching
-            for kw in _all_keywords(store_id):
-                if fuzz.token_set_ratio(normalized, kw) >= 75:
-                    kw_map = _get_mapping_any(store_id, kw)
-                    if kw_map:
-                        item_type_id = kw_map.get("item_type_id", kw)
-                        break
+            # Old mapping has no item_type_id — infer from global keywords only
+            # (must use global, not store, to avoid matching normalized name itself)
+            best_kw, best_score = None, 0
+            for kw, kw_map in _mapping_cache.get("global", {}).items():
+                score = fuzz.token_set_ratio(normalized, kw)
+                if score > best_score:
+                    best_score, best_kw = score, kw
+            if best_kw and best_score >= 75:
+                kw_map = _mapping_cache["global"][best_kw]
+                item_type_id = kw_map.get("item_type_id", best_kw)
         category = _resolve_category(item_type_id, hit.get("category", "other"))
         return item_type_id, category, MatchSource.STORE_EXACT, 1.0, TrustLevel.TRUSTED, False, normalized
 
