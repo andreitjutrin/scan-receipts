@@ -128,8 +128,29 @@ body{font-family:'DM Sans',sans-serif;background:var(--bg);color:var(--text);min
 .receipt-img-panel{position:sticky;top:0;background:var(--surface);border:1px solid var(--border);border-radius:var(--radius);padding:12px;box-shadow:var(--shadow);align-self:start}
 .receipt-img-panel img{width:100%;border-radius:var(--radius-sm);display:block}
 .receipt-img-panel .img-label{font-size:11px;color:var(--text3);text-align:center;margin-top:8px;font-weight:500;text-transform:uppercase;letter-spacing:0.4px}
-.detail-grid{display:grid;grid-template-columns:1fr 300px;gap:20px;align-items:start}
+.detail-grid{display:grid;grid-template-columns:1fr 420px;gap:20px;align-items:start}
 .detail-grid.no-image{grid-template-columns:1fr}
+.table-scroll{overflow-x:auto;-webkit-overflow-scrolling:touch}
+.items-table{min-width:640px}
+/* Mobile */
+.menu-btn{display:none;background:none;border:none;font-size:22px;cursor:pointer;padding:4px 8px;color:var(--text2);line-height:1;margin-right:4px}
+.sidebar-backdrop{display:none;position:fixed;inset:0;background:rgba(0,0,0,0.35);z-index:400}
+@media(max-width:768px){
+  .menu-btn{display:flex;align-items:center}
+  .app{height:auto;min-height:100vh;overflow:visible}
+  .main{overflow:visible;display:flex;flex-direction:column}
+  .content{overflow-y:visible;padding:16px}
+  .sidebar{position:fixed;left:-260px;top:0;bottom:0;width:260px;z-index:500;transition:left 0.25s ease;box-shadow:var(--shadow-lg)}
+  .sidebar.open{left:0}
+  .sidebar-backdrop.open{display:block}
+  .detail-grid{display:flex!important;flex-direction:column;gap:16px}
+  .detail-grid .receipt-img-panel{order:-1;position:relative;top:auto;max-height:none}
+  .detail-grid .receipt-img-panel img{max-height:60vh;width:auto;max-width:100%;margin:0 auto;display:block}
+  .stats-grid{grid-template-columns:1fr 1fr}
+  .receipt-date,.receipt-items{display:none}
+  .items-table th:nth-child(5),.items-table td:nth-child(5),
+  .items-table th:nth-child(6),.items-table td:nth-child(6){display:none}
+}
 .map-table{width:100%;border-collapse:separate;border-spacing:0;background:var(--surface);border:1px solid var(--border);border-radius:var(--radius);overflow:hidden;box-shadow:var(--shadow)}
 .map-table th{padding:9px 12px;font-size:11px;font-weight:600;color:var(--text3);text-transform:uppercase;letter-spacing:0.4px;background:var(--surface2);border-bottom:1px solid var(--border);text-align:left}
 .map-table td{padding:9px 12px;border-bottom:1px solid var(--border);font-size:13px;vertical-align:middle}
@@ -164,6 +185,7 @@ body{font-family:'DM Sans',sans-serif;background:var(--bg);color:var(--text);min
 
   <main class="main">
     <div class="topbar">
+      <button class="menu-btn" onclick="toggleSidebar()">☰</button>
       <div class="topbar-title" id="topbar-title">Dashboard</div>
       <div id="topbar-actions"></div>
     </div>
@@ -267,6 +289,7 @@ body{font-family:'DM Sans',sans-serif;background:var(--bg);color:var(--text);min
   </div>
 </div>
 
+<div class="sidebar-backdrop" id="sidebar-backdrop" onclick="toggleSidebar()"></div>
 <div class="toast-wrap" id="toasts"></div>
 
 <script>
@@ -310,6 +333,9 @@ function showView(name) {
   document.getElementById(`view-${name}`).classList.add('active');
   const nav = document.getElementById(`nav-${name}`);
   if (nav) nav.classList.add('active');
+  // Close sidebar on mobile after navigation
+  document.querySelector('.sidebar').classList.remove('open');
+  document.getElementById('sidebar-backdrop').classList.remove('open');
   document.getElementById('topbar-title').textContent = {dashboard:'Dashboard',receipts:'Receipts',detail:'Receipt Detail',mappings:'Item Mappings'}[name]||name;
   document.getElementById('topbar-actions').innerHTML = '';
   if (name==='dashboard') loadDashboard();
@@ -470,12 +496,12 @@ function renderDetail(receipt, items) {
     :`<div class="export-banner">✓ All items reviewed — export will trigger automatically</div>`;
 
   const tableHtml = `
-    <table class="items-table">
+    <div class="table-scroll"><table class="items-table">
       <thead><tr>
-        <th>Item</th><th>Item Type / Category</th><th>Price</th><th>Confidence</th><th>Audit</th>
+        <th>Item</th><th>Item Type</th><th>Category</th><th>Price</th><th>Confidence</th><th>Audit</th>
       </tr></thead>
       <tbody>${items.map(item=>renderRow(item)).join('')}</tbody>
-    </table>`;
+    </table></div>`;
 
   const imgPanel = currentImageUrl
     ? `<div class="receipt-img-panel">
@@ -541,13 +567,14 @@ function renderRow(item) {
     item.exported_to_excel?`exported:   ${item.exported_at||'yes'}`:`exported:   not yet`,
   ].filter(Boolean).join('\n');
 
-  // Show item_type_id label, falling back to category
-  const displayCat = item.item_type_id || item.category || 'unknown';
-  const pendVal = pendingCorrections[item.item_seq];
-  const inputVal = pendVal ? (pendVal.label || pendVal.item_type_id || pendVal) : displayCat;
+  const pendVal        = pendingCorrections[item.item_seq];
+  const displayType    = item.item_type_id || item.category || 'unknown';
+  const displayCat     = item.category || 'unknown';
+  const inputVal       = pendVal ? (pendVal.label || pendVal.item_type_id || pendVal) : displayType;
+  const resolvedCat    = pendVal ? (pendVal.category || displayCat) : displayCat;
 
-  const catCell = needsRev?`
-    <div class="cat-wrap" style="min-width:200px">
+  const typeCell = needsRev ? `
+    <div class="cat-wrap" style="min-width:180px">
       <input type="text" class="cat-input" id="ci-${item.item_seq}"
         value="${inputVal}"
         oninput="filterItemTypes('${item.item_seq}',this.value)"
@@ -556,13 +583,16 @@ function renderRow(item) {
         autocomplete="off">
       <div class="cat-dropdown" id="cd-${item.item_seq}">
         ${(_itemTypes.length ? _itemTypes : CATS.map(c=>({item_type_id:c,category_id:c}))).slice(0,80)
-          .map(it=>`<div class="cat-option" onmousedown="pickItemType('${item.item_seq}','${it.item_type_id}','${it.category_id||it.item_type_id}','${it.label||it.item_type_id}')">${it.item_type_id}<span class="cat-type-hint">${it.category_id&&it.category_id!==it.item_type_id?' — '+it.category_id:''}</span></div>`).join('')}
+          .map(it=>`<div class="cat-option" onmousedown="pickItemType('${item.item_seq}','${it.item_type_id}','${it.category_id||it.item_type_id}','${it.label||it.item_type_id}')">${it.item_type_id}</div>`).join('')}
       </div>
     </div>`
-    :`<div><span class="tag">${displayCat}</span>${item.item_type_id&&item.category&&item.item_type_id!==item.category?`<div style="font-size:10px;color:var(--text3);margin-top:2px">${item.category}</div>`:''}</div>`;
+    : `<span class="tag">${displayType}</span>`;
+
+  const catCell = `<span class="tag" id="cat-resolve-${item.item_seq}" style="color:var(--text3)">${resolvedCat}</span>`;
 
   return `<tr style="${rowStyle}" id="row-${item.item_seq}">
     <td><div class="item-name">${item.raw_name}</div><div class="item-norm">${item.normalized_name||''}</div></td>
+    <td>${typeCell}</td>
     <td>${catCell}</td>
     <td><span style="font-family:'DM Mono',monospace">${item.price||'—'}</span>${item.quantity&&item.quantity!=='1'?`<span style="font-size:11px;color:var(--text3);margin-left:4px">×${item.quantity}</span>`:''}</td>
     <td>
@@ -598,6 +628,8 @@ function pickItemType(seq, itemTypeId, categoryId, label) {
   pendingCorrections[seq] = {item_type_id: itemTypeId, category: categoryId, label};
   const el = document.getElementById(`ci-${seq}`);
   if (el) el.value = label || itemTypeId;
+  const catEl = document.getElementById(`cat-resolve-${seq}`);
+  if (catEl) catEl.textContent = categoryId;
   closeDrop(seq);
   document.getElementById('topbar-actions').innerHTML =
     `<button class="btn btn-primary btn-sm" onclick="submitCorrections()">Save corrections</button> <button class="btn btn-secondary btn-sm" onclick="reprocessReceipt('${currentReceiptId}')">↺ Reprocess</button>`;
@@ -695,6 +727,11 @@ function fmtDate(d){try{return new Date(d).toLocaleDateString('en-GB',{day:'nume
 function sleep(ms){return new Promise(r=>setTimeout(r,ms));}
 function loadingHtml(msg=''){return `<div style="text-align:center;padding:48px;color:var(--text3)"><div style="width:22px;height:22px;border:2px solid var(--border);border-top-color:var(--accent);border-radius:50%;animation:spin 0.8s linear infinite;margin:0 auto 12px"></div>${msg?`<div style="font-size:13px">${msg}</div>`:''}</div>`;}
 function emptyState(t,s){return `<div class="empty"><div class="empty-icon">🧾</div><div class="empty-title">${t}</div><div style="font-size:13px">${s}</div></div>`;}
+
+function toggleSidebar() {
+  document.querySelector('.sidebar').classList.toggle('open');
+  document.getElementById('sidebar-backdrop').classList.toggle('open');
+}
 
 loadDashboard();
 </script>
