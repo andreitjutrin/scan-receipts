@@ -532,7 +532,7 @@ async function reprocessReceipt(id) {
   if (!confirm('Reprocess this receipt? This will re-run Textract and overwrite all current items.')) return;
   try {
     showProc('Reprocessing…', 'Running Textract again');
-    await apiFetch(`/receipts/${id}/process`, {method:'POST', body:JSON.stringify({})});
+    await apiFetch(`/receipts/${id}/reprocess`, {method:'POST', body:JSON.stringify({})});
     let status='reprocessing', attempts=0;
     while(['reprocessing','processing','pending'].includes(status) && attempts<24){
       await sleep(5000); attempts++;
@@ -568,7 +568,7 @@ function renderRow(item) {
   ].filter(Boolean).join('\n');
 
   const pendVal        = pendingCorrections[item.item_seq];
-  const displayType    = item.item_type_id || item.category || 'unknown';
+  const displayType    = item.item_type_id || '—';
   const displayCat     = item.category || 'unknown';
   const inputVal       = pendVal ? (pendVal.label || pendVal.item_type_id || pendVal) : displayType;
   const resolvedCat    = pendVal ? (pendVal.category || displayCat) : displayCat;
