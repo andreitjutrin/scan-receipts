@@ -31,7 +31,7 @@ THRESHOLD_GUESS    = 0.50   # >= this: flag for review, show as best guess
 
 TRUST_PROMOTE_CONFIDENT = 3   # confirmations to reach confident
 TRUST_PROMOTE_TRUSTED   = 5   # confirmations to reach trusted
-MAX_PROCESS_COUNT       = 3   # max Textract calls per receipt (cost safeguard)
+MAX_PROCESS_COUNT       = 10  # max Textract calls per receipt (cost safeguard)
 
 
 # ---------------------------------------------------------------------------
