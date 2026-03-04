@@ -32,6 +32,8 @@ MAPPINGS_TABLE   = os.environ["MAPPINGS_TABLE"]
 CATEGORIES_TABLE = os.environ["CATEGORIES_TABLE"]
 RETAILERS_TABLE  = os.environ["RETAILERS_TABLE"]
 ALERT_TOPIC_ARN  = os.environ.get("ALERT_TOPIC_ARN", "")  # SNS topic for cost alerts
+ITEM_TYPES_TABLE = os.environ.get("ITEM_TYPES_TABLE", "")
+IMAGES_BUCKET    = os.environ.get("IMAGES_BUCKET", "")
 
 GLOBAL_STORE = "global"
 
@@ -208,7 +210,8 @@ def get_items(receipt_id: str) -> list[dict]:
     return sorted(items, key=lambda x: x.get("item_seq", ""))
 
 
-def update_item_category(receipt_id: str, item_seq: str, category: str, record_correction: bool = False):
+def update_item_category(receipt_id: str, item_seq: str, category: str,
+                         item_type_id: str = None, record_correction: bool = False):
     expr = "SET category = :cat, confirmed = :yes, match_source = :src, updated_at = :ts"
     vals = {
         ":cat": category,
@@ -216,6 +219,9 @@ def update_item_category(receipt_id: str, item_seq: str, category: str, record_c
         ":src": "manual",
         ":ts":  _now()
     }
+    if item_type_id:
+        expr += ", item_type_id = :iti"
+        vals[":iti"] = item_type_id
     if record_correction:
         expr += ", corrected_at = :cor"
         vals[":cor"] = _now()
@@ -355,7 +361,7 @@ def write_learned_mapping(store_id: str, normalized_name: str,
     logger.info("Learned mapping %s â†’ %s (%.0f%%, %s)", mapping_key, category, confidence * 100, trust)
 
 
-def save_correction(store_id: str, normalized_name: str, category: str) -> dict:
+def save_correction(store_id: str, normalized_name: str, item_type_id: str, category: str) -> dict:
     """
     Save a user correction back to the mappings table.
 
@@ -375,7 +381,7 @@ def save_correction(store_id: str, normalized_name: str, category: str) -> dict:
     existing = table.get_item(Key={"mapping_key": mapping_key}).get("Item")
 
     if existing and existing.get("trust") == TrustLevel.TRUSTED.value:
-        if existing.get("category") == category:
+        if existing.get("item_type_id", existing.get("category")) == item_type_id:
             # User confirmed â€” just increment count
             promote_mapping_if_ready(mapping_key)
             return {"conflict": False}
@@ -383,19 +389,21 @@ def save_correction(store_id: str, normalized_name: str, category: str) -> dict:
             # Conflict â€” save it but don't overwrite
             table.update_item(
                 Key={"mapping_key": mapping_key},
-                UpdateExpression="SET conflict_category = :c, conflict_at = :ts",
-                ExpressionAttributeValues={":c": category, ":ts": now}
+                UpdateExpression="SET conflict_category = :c, conflict_item_type = :it, conflict_at = :ts",
+                ExpressionAttributeValues={":c": category, ":it": item_type_id, ":ts": now}
             )
-            logger.warning("Conflict on trusted mapping %s: existing=%s, correction=%s",
-                           mapping_key, existing.get("category"), category)
-            return {"conflict": True, "existing_category": existing.get("category")}
+            logger.warning("Conflict on trusted mapping %s: existing_type=%s, new_type=%s",
+                           mapping_key, existing.get("item_type_id"), item_type_id)
+            return {"conflict": True, "existing_item_type_id": existing.get("item_type_id"),
+                    "existing_category": existing.get("category")}
 
     # Overwrite or create â€” manual correction is immediately trusted
     table.put_item(Item={
         "mapping_key":     mapping_key,
         "store_id":        effective_store,
         "normalized_name": normalized_name,
-        "category":        category,
+        "item_type_id":    item_type_id,
+        "category":        category,        # kept for backwards compat
         "confidence":      "1.00",
         "match_count":     1,
         "trust":           TrustLevel.TRUSTED.value,
@@ -431,6 +439,41 @@ def load_store_mappings(store_id: str) -> list[dict]:
 
     logger.info("Loaded %d mappings for store=%s at cold start", len(result), store_id)
     return result
+
+
+def load_item_types() -> list[dict]:
+    """Scan ItemTypes table for two-hop category resolution at cold start."""
+    if not ITEM_TYPES_TABLE:
+        return []
+    table  = db().Table(ITEM_TYPES_TABLE)
+    result = []
+    kwargs: dict = {}
+    while True:
+        resp = table.scan(**kwargs)
+        result.extend(resp.get("Items", []))
+        if not resp.get("LastEvaluatedKey"):
+            break
+        kwargs["ExclusiveStartKey"] = resp["LastEvaluatedKey"]
+    logger.info("Loaded %d item types", len(result))
+    return result
+
+
+def get_item_type(item_type_id: str) -> Optional[dict]:
+    """Get a single item type by ID."""
+    if not ITEM_TYPES_TABLE or not item_type_id:
+        return None
+    resp = db().Table(ITEM_TYPES_TABLE).get_item(Key={"item_type_id": item_type_id})
+    return resp.get("Item")
+
+
+def get_image_presigned_url(s3_key: str, expiry: int = 3600) -> str:
+    """Generate a presigned GET URL for a receipt image in S3."""
+    s3 = boto3.client("s3")
+    return s3.generate_presigned_url(
+        "get_object",
+        Params={"Bucket": IMAGES_BUCKET, "Key": s3_key},
+        ExpiresIn=expiry
+    )
 
 
 # =============================================================================

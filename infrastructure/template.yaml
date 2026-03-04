@@ -36,8 +36,9 @@ Globals:
         RECEIPTS_TABLE:   !Ref ReceiptsTable
         ITEMS_TABLE:      !Ref ItemsTable
         MAPPINGS_TABLE:   !Ref MappingsTable
-        CATEGORIES_TABLE: !Ref CategoriesTable
-        RETAILERS_TABLE:  !Ref RetailersTable
+        CATEGORIES_TABLE:  !Ref CategoriesTable
+        RETAILERS_TABLE:   !Ref RetailersTable
+        ITEM_TYPES_TABLE:  !Ref ItemTypesTable
         IMAGES_BUCKET:    !Ref ImagesBucket
         EXPORTS_BUCKET:   !Ref ExportsBucket
         ALERT_TOPIC_ARN:  !Ref AlertTopic
@@ -213,6 +214,18 @@ Resources:
         - AttributeName: category_id
           KeyType: HASH
 
+  ItemTypesTable:
+    Type: AWS::DynamoDB::Table
+    Properties:
+      TableName: !Sub "grocery-item-types-${Environment}"
+      BillingMode: PAY_PER_REQUEST
+      AttributeDefinitions:
+        - AttributeName: item_type_id
+          AttributeType: S
+      KeySchema:
+        - AttributeName: item_type_id
+          KeyType: HASH
+
   RetailersTable:
     Type: AWS::DynamoDB::Table
     Properties:
@@ -274,6 +287,7 @@ Resources:
                   - !Sub "${MappingsTable.Arn}/index/*"
                   - !GetAtt CategoriesTable.Arn
                   - !GetAtt RetailersTable.Arn
+                  - !GetAtt ItemTypesTable.Arn
               - Effect: Allow
                 Action: textract:AnalyzeExpense
                 Resource: "*"
@@ -305,6 +319,8 @@ Resources:
             RestApiId: !Ref Api
             Path: /receipts/upload-url
             Method: POST
+            Auth:
+              ApiKeyRequired: true
 
   UploadLogGroup:
     Type: AWS::Logs::LogGroup
@@ -337,6 +353,8 @@ Resources:
             RestApiId: !Ref Api
             Path: /receipts/{receipt_id}/reprocess
             Method: POST
+            Auth:
+              ApiKeyRequired: true
 
   ProcessorLogGroup:
     Type: AWS::Logs::LogGroup
@@ -359,24 +377,32 @@ Resources:
             RestApiId: !Ref Api
             Path: /receipts
             Method: GET
+            Auth:
+              ApiKeyRequired: true
         GetReceipt:
           Type: Api
           Properties:
             RestApiId: !Ref Api
             Path: /receipts/{receipt_id}
             Method: GET
+            Auth:
+              ApiKeyRequired: true
         ConfirmReceipt:
           Type: Api
           Properties:
             RestApiId: !Ref Api
             Path: /receipts/{receipt_id}/confirm
             Method: POST
+            Auth:
+              ApiKeyRequired: true
         DeleteReceipt:
           Type: Api
           Properties:
             RestApiId: !Ref Api
             Path: /receipts/{receipt_id}
             Method: DELETE
+            Auth:
+              ApiKeyRequired: true
 
   ReceiptsLogGroup:
     Type: AWS::Logs::LogGroup
@@ -399,18 +425,56 @@ Resources:
             RestApiId: !Ref Api
             Path: /categories
             Method: GET
+            Auth:
+              ApiKeyRequired: true
         GetRetailers:
           Type: Api
           Properties:
             RestApiId: !Ref Api
             Path: /retailers
             Method: GET
+            Auth:
+              ApiKeyRequired: true
         AddRetailer:
           Type: Api
           Properties:
             RestApiId: !Ref Api
             Path: /retailers
             Method: POST
+            Auth:
+              ApiKeyRequired: true
+        GetItemTypes:
+          Type: Api
+          Properties:
+            RestApiId: !Ref Api
+            Path: /item-types
+            Method: GET
+            Auth:
+              ApiKeyRequired: true
+        AddItemType:
+          Type: Api
+          Properties:
+            RestApiId: !Ref Api
+            Path: /item-types
+            Method: POST
+            Auth:
+              ApiKeyRequired: true
+        UpdateItemType:
+          Type: Api
+          Properties:
+            RestApiId: !Ref Api
+            Path: /item-types/{item_type_id}
+            Method: PUT
+            Auth:
+              ApiKeyRequired: true
+        GetMappings:
+          Type: Api
+          Properties:
+            RestApiId: !Ref Api
+            Path: /mappings
+            Method: GET
+            Auth:
+              ApiKeyRequired: true
 
   ReferenceLogGroup:
     Type: AWS::Logs::LogGroup
@@ -433,12 +497,16 @@ Resources:
             RestApiId: !Ref Api
             Path: /admin/backups
             Method: GET
+            Auth:
+              ApiKeyRequired: true
         RestoreBackup:
           Type: Api
           Properties:
             RestApiId: !Ref Api
             Path: /admin/restore-backup
             Method: POST
+            Auth:
+              ApiKeyRequired: true
 
   AdminLogGroup:
     Type: AWS::Logs::LogGroup
@@ -455,7 +523,9 @@ Resources:
       Name: !Sub "grocery-api-${Environment}"
       StageName: !Ref Environment
       Auth:
-        ApiKeyRequired: true
+        # ApiKeyRequired is NOT set here — setting it globally applies to OPTIONS
+        # preflight requests too, which browsers send without an API key, causing
+        # CORS to fail. Instead each real method sets ApiKeyRequired individually.
         UsagePlan:
           CreateUsagePlan: PER_API
           Quota:

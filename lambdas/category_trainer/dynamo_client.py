@@ -32,6 +32,7 @@ MAPPINGS_TABLE   = os.environ["MAPPINGS_TABLE"]
 CATEGORIES_TABLE = os.environ["CATEGORIES_TABLE"]
 RETAILERS_TABLE  = os.environ["RETAILERS_TABLE"]
 ALERT_TOPIC_ARN  = os.environ.get("ALERT_TOPIC_ARN", "")  # SNS topic for cost alerts
+ITEM_TYPES_TABLE = os.environ.get("ITEM_TYPES_TABLE", "")
 
 GLOBAL_STORE = "global"
 
@@ -311,22 +312,24 @@ def promote_mapping_if_ready(mapping_key: str):
 
 
 def write_learned_mapping(store_id: str, normalized_name: str,
-                           category: str, confidence: float,
+                           item_type_id: str, category: str, confidence: float,
                            source: str) -> None:
-    """
+    “””
     Persist a fuzzy match result to the store-scoped table so future identical
     OCR strings hit Layer 1 (exact) rather than going through fuzzy matching again.
+
+    Stores item_type_id for the two-hop chain; category kept for backwards compat.
 
     Rules:
     - confidence >= 0.92 â†’ write as confident
     - confidence >= 0.75 â†’ write as tentative
     - confidence <  0.75 â†’ do NOT write (too uncertain to learn from)
     - never overwrite a trusted mapping with a fuzzy result
-    - never write if store is unknown (don't know which template to update)
-    """
+    - never write if store is unknown (don’t know which template to update)
+    “””
     if confidence < THRESHOLD_REVIEW:
-        return  # below 0.75 â€” don't learn from this
-    if not store_id or store_id == "unknown":
+        return  # below 0.75 â€” don’t learn from this
+    if not store_id or store_id == “unknown”:
         return
 
     trust       = TrustLevel.CONFIDENT.value if confidence >= THRESHOLD_SILENT else TrustLevel.TENTATIVE.value
@@ -334,76 +337,79 @@ def write_learned_mapping(store_id: str, normalized_name: str,
     now         = _now()
 
     existing = db().Table(MAPPINGS_TABLE).get_item(
-        Key={"mapping_key": mapping_key}
-    ).get("Item")
+        Key={“mapping_key”: mapping_key}
+    ).get(“Item”)
 
-    if existing and existing.get("trust") == TrustLevel.TRUSTED.value:
+    if existing and existing.get(“trust”) == TrustLevel.TRUSTED.value:
         return  # never overwrite trusted with a fuzzy result
 
     db().Table(MAPPINGS_TABLE).put_item(Item={
-        "mapping_key":     mapping_key,
-        "store_id":        store_id,
-        "normalized_name": normalized_name,
-        "category":        category,
-        "confidence":      str(round(confidence, 4)),
-        "match_count":     1,
-        "trust":           trust,
-        "source":          source,
-        "created_at":      existing.get("created_at", now) if existing else now,
-        "last_seen":       now
+        “mapping_key”:     mapping_key,
+        “store_id”:        store_id,
+        “normalized_name”: normalized_name,
+        “item_type_id”:    item_type_id,
+        “category”:        category,        # kept for backwards compat
+        “confidence”:      str(round(confidence, 4)),
+        “match_count”:     1,
+        “trust”:           trust,
+        “source”:          source,
+        “created_at”:      existing.get(“created_at”, now) if existing else now,
+        “last_seen”:       now
     })
-    logger.info("Learned mapping %s â†’ %s (%.0f%%, %s)", mapping_key, category, confidence * 100, trust)
+    logger.info(“Learned mapping %s â†’ %s (%.0f%%, %s)”, mapping_key, category, confidence * 100, trust)
 
 
-def save_correction(store_id: str, normalized_name: str, category: str) -> dict:
-    """
+def save_correction(store_id: str, normalized_name: str, item_type_id: str, category: str) -> dict:
+    “””
     Save a user correction back to the mappings table.
 
     Behaviour by existing trust level:
-    - trusted + same category  â†’ just increment match_count, no change
-    - trusted + different category â†’ save conflict flag, return conflict info
+    - trusted + same item_type  â†’ just increment match_count, no change
+    - trusted + different item_type â†’ save conflict flag, return conflict info
     - confident or tentative â†’ overwrite with manual correction (instantly trusted)
     - missing â†’ create new trusted mapping
 
-    Returns dict with key 'conflict': True/False
-    """
-    effective_store = store_id if (store_id and store_id != "unknown") else GLOBAL_STORE
+    Returns dict with key ‘conflict’: True/False
+    “””
+    effective_store = store_id if (store_id and store_id != “unknown”) else GLOBAL_STORE
     mapping_key     = _make_key(effective_store, normalized_name)
     table           = db().Table(MAPPINGS_TABLE)
     now             = _now()
 
-    existing = table.get_item(Key={"mapping_key": mapping_key}).get("Item")
+    existing = table.get_item(Key={“mapping_key”: mapping_key}).get(“Item”)
 
-    if existing and existing.get("trust") == TrustLevel.TRUSTED.value:
-        if existing.get("category") == category:
+    if existing and existing.get(“trust”) == TrustLevel.TRUSTED.value:
+        if existing.get(“item_type_id”, existing.get(“category”)) == item_type_id:
             # User confirmed â€” just increment count
             promote_mapping_if_ready(mapping_key)
-            return {"conflict": False}
+            return {“conflict”: False}
         else:
-            # Conflict â€” save it but don't overwrite
+            # Conflict â€” save it but don’t overwrite
             table.update_item(
-                Key={"mapping_key": mapping_key},
-                UpdateExpression="SET conflict_category = :c, conflict_at = :ts",
-                ExpressionAttributeValues={":c": category, ":ts": now}
+                Key={“mapping_key”: mapping_key},
+                UpdateExpression=”SET conflict_category = :c, conflict_item_type = :it, conflict_at = :ts”,
+                ExpressionAttributeValues={“:c”: category, “:it”: item_type_id, “:ts”: now}
             )
-            logger.warning("Conflict on trusted mapping %s: existing=%s, correction=%s",
-                           mapping_key, existing.get("category"), category)
-            return {"conflict": True, "existing_category": existing.get("category")}
+            logger.warning(“Conflict on trusted mapping %s: existing_type=%s, new_type=%s”,
+                           mapping_key, existing.get(“item_type_id”), item_type_id)
+            return {“conflict”: True, “existing_item_type_id”: existing.get(“item_type_id”),
+                    “existing_category”: existing.get(“category”)}
 
     # Overwrite or create â€” manual correction is immediately trusted
     table.put_item(Item={
-        "mapping_key":     mapping_key,
-        "store_id":        effective_store,
-        "normalized_name": normalized_name,
-        "category":        category,
-        "confidence":      "1.00",
-        "match_count":     1,
-        "trust":           TrustLevel.TRUSTED.value,
-        "source":          "manual",
-        "created_at":      existing.get("created_at", now) if existing else now,
-        "last_seen":       now
+        “mapping_key”:     mapping_key,
+        “store_id”:        effective_store,
+        “normalized_name”: normalized_name,
+        “item_type_id”:    item_type_id,
+        “category”:        category,        # kept for backwards compat
+        “confidence”:      “1.00”,
+        “match_count”:     1,
+        “trust”:           TrustLevel.TRUSTED.value,
+        “source”:          “manual”,
+        “created_at”:      existing.get(“created_at”, now) if existing else now,
+        “last_seen”:       now
     })
-    return {"conflict": False}
+    return {“conflict”: False}
 
 
 def load_store_mappings(store_id: str) -> list[dict]:
@@ -430,6 +436,72 @@ def load_store_mappings(store_id: str) -> list[dict]:
             kwargs["ExclusiveStartKey"] = resp["LastEvaluatedKey"]
 
     logger.info("Loaded %d mappings for store=%s at cold start", len(result), store_id)
+    return result
+
+
+def load_item_types() -> list[dict]:
+    """Return all item types, sorted by item_type_id."""
+    if not ITEM_TYPES_TABLE:
+        return []
+    table  = db().Table(ITEM_TYPES_TABLE)
+    result = []
+    kwargs: dict = {}
+    while True:
+        resp = table.scan(**kwargs)
+        result.extend(resp.get("Items", []))
+        if not resp.get("LastEvaluatedKey"):
+            break
+        kwargs["ExclusiveStartKey"] = resp["LastEvaluatedKey"]
+    return sorted(result, key=lambda x: x.get("item_type_id", ""))
+
+
+def get_item_type(item_type_id: str) -> Optional[dict]:
+    if not ITEM_TYPES_TABLE or not item_type_id:
+        return None
+    resp = db().Table(ITEM_TYPES_TABLE).get_item(Key={"item_type_id": item_type_id})
+    return resp.get("Item")
+
+
+def save_item_type(item_type_id: str, category_id: str, label: str = None) -> dict:
+    """Create or update an item type entry."""
+    table = db().Table(ITEM_TYPES_TABLE)
+    now   = _now()
+    existing = get_item_type(item_type_id)
+    item = {
+        "item_type_id": item_type_id,
+        "category_id":  category_id,
+        "label":        label or item_type_id,
+        "created_at":   existing.get("created_at", now) if existing else now,
+        "updated_at":   now
+    }
+    table.put_item(Item=item)
+    logger.info("Saved item type %s -> %s", item_type_id, category_id)
+    return item
+
+
+def list_all_mappings(store_id: str = None) -> list[dict]:
+    """Return all mappings, optionally filtered by store_id."""
+    table  = db().Table(MAPPINGS_TABLE)
+    result = []
+    if store_id:
+        kwargs = {
+            "IndexName": "StoreIndex",
+            "KeyConditionExpression": Key("store_id").eq(store_id)
+        }
+        while True:
+            resp = table.query(**kwargs)
+            result.extend(resp.get("Items", []))
+            if not resp.get("LastEvaluatedKey"):
+                break
+            kwargs["ExclusiveStartKey"] = resp["LastEvaluatedKey"]
+    else:
+        kwargs2: dict = {}
+        while True:
+            resp = table.scan(**kwargs2)
+            result.extend(resp.get("Items", []))
+            if not resp.get("LastEvaluatedKey"):
+                break
+            kwargs2["ExclusiveStartKey"] = resp["LastEvaluatedKey"]
     return result
 
 

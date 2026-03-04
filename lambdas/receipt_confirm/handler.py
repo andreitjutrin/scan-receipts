@@ -46,7 +46,17 @@ def _get_receipt(receipt_id):
         return _error(404, f"Receipt {receipt_id} not found")
     items = db.get_items(receipt_id)
     items.sort(key=lambda x: x.get("item_seq", ""))
-    return _ok({"receipt": receipt, "items": items})
+
+    # Include presigned image URL so the review screen can show the receipt photo
+    image_url = None
+    s3_key = receipt.get("s3_key", "")
+    if s3_key:
+        try:
+            image_url = db.get_image_presigned_url(s3_key)
+        except Exception:
+            pass  # not critical if this fails
+
+    return _ok({"receipt": receipt, "items": items, "image_url": image_url})
 
 
 def _confirm_receipt(receipt_id, event):
@@ -66,13 +76,24 @@ def _confirm_receipt(receipt_id, event):
     store_id  = receipt.get("retailer_id", "unknown")
     corrected = 0
 
+    # Load item types once for resolving category from item_type_id
+    all_item_types = {it["item_type_id"]: it for it in db.load_item_types()}
+
     for correction in corrections:
-        item_seq = correction.get("item_seq")
-        category = correction.get("category")
+        item_seq     = correction.get("item_seq")
+        category     = correction.get("category")
+        item_type_id = correction.get("item_type_id")
         if not item_seq or not category:
             continue
 
-        db.update_item_category(receipt_id, item_seq, category)
+        # If item_type_id provided, resolve category from it (two-hop)
+        if item_type_id and item_type_id in all_item_types:
+            category = all_item_types[item_type_id].get("category_id", category)
+        elif item_type_id:
+            # Unknown item_type_id — treat item_type_id as the category key
+            pass
+
+        db.update_item_category(receipt_id, item_seq, category, item_type_id=item_type_id)
 
         items = db.get_items(receipt_id)
         item  = next((i for i in items if i.get("item_seq") == item_seq), None)
@@ -82,6 +103,7 @@ def _confirm_receipt(receipt_id, event):
                 db.save_correction(
                     store_id=store_id,
                     normalized_name=normalized,
+                    item_type_id=item_type_id or category,
                     category=category
                 )
         corrected += 1

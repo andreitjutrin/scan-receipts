@@ -125,6 +125,19 @@ body{font-family:'DM Sans',sans-serif;background:var(--bg);color:var(--text);min
 .sec-header{display:flex;align-items:center;justify-content:space-between;margin-bottom:14px}
 .sec-title{font-size:13px;font-weight:600;color:var(--text2);text-transform:uppercase;letter-spacing:0.5px}
 ::-webkit-scrollbar{width:5px}::-webkit-scrollbar-track{background:transparent}::-webkit-scrollbar-thumb{background:var(--border);border-radius:3px}
+.receipt-img-panel{position:sticky;top:0;background:var(--surface);border:1px solid var(--border);border-radius:var(--radius);padding:12px;box-shadow:var(--shadow);align-self:start}
+.receipt-img-panel img{width:100%;border-radius:var(--radius-sm);display:block}
+.receipt-img-panel .img-label{font-size:11px;color:var(--text3);text-align:center;margin-top:8px;font-weight:500;text-transform:uppercase;letter-spacing:0.4px}
+.detail-grid{display:grid;grid-template-columns:1fr 300px;gap:20px;align-items:start}
+.detail-grid.no-image{grid-template-columns:1fr}
+.map-table{width:100%;border-collapse:separate;border-spacing:0;background:var(--surface);border:1px solid var(--border);border-radius:var(--radius);overflow:hidden;box-shadow:var(--shadow)}
+.map-table th{padding:9px 12px;font-size:11px;font-weight:600;color:var(--text3);text-transform:uppercase;letter-spacing:0.4px;background:var(--surface2);border-bottom:1px solid var(--border);text-align:left}
+.map-table td{padding:9px 12px;border-bottom:1px solid var(--border);font-size:13px;vertical-align:middle}
+.map-table tr:last-child td{border-bottom:none}
+.map-table tr:hover td{background:var(--bg)}
+.it-input{padding:4px 8px;border:1px solid var(--border);border-radius:var(--radius-sm);font-family:inherit;font-size:12px;background:var(--surface);color:var(--text);outline:none;width:160px}
+.it-input:focus{border-color:var(--accent)}
+.cat-type-hint{font-size:10px;color:var(--text3);font-style:italic;margin-left:4px}
 </style>
 </head>
 <body>
@@ -142,6 +155,7 @@ body{font-family:'DM Sans',sans-serif;background:var(--bg);color:var(--text);min
     <nav class="sidebar-nav">
       <button class="nav-item active" id="nav-dashboard" onclick="showView('dashboard')"><span>◎</span> Dashboard</button>
       <button class="nav-item" id="nav-receipts" onclick="showView('receipts')"><span>≡</span> Receipts</button>
+      <button class="nav-item" id="nav-mappings" onclick="showView('mappings')"><span>⊞</span> Mappings</button>
     </nav>
     <div class="sidebar-footer">
       <button class="btn btn-primary" style="width:100%" onclick="openScanModal()">+ Scan Receipt</button>
@@ -182,6 +196,14 @@ body{font-family:'DM Sans',sans-serif;background:var(--bg);color:var(--text);min
         <div id="detail-content"></div>
       </div>
 
+      <div class="view" id="view-mappings">
+        <div class="sec-header" style="margin-bottom:16px">
+          <div class="sec-title">Item Type → Category Mappings</div>
+          <button class="btn btn-primary btn-sm" onclick="openNewItemTypeModal()">+ New Item Type</button>
+        </div>
+        <div id="mappings-content"></div>
+      </div>
+
     </div>
   </main>
 </div>
@@ -212,6 +234,31 @@ body{font-family:'DM Sans',sans-serif;background:var(--bg);color:var(--text);min
   </div>
 </div>
 
+<div class="modal-overlay" id="new-item-type-modal">
+  <div class="modal">
+    <div class="modal-title">New Item Type</div>
+    <div class="modal-sub">Add a new item type and map it to a category. The item_type_id is the keyword used for OCR matching.</div>
+    <div class="form-group">
+      <label class="form-label">Item Type ID (keyword)</label>
+      <input type="text" class="form-select" id="nit-id" placeholder="e.g. smoked salmon" style="font-size:13px">
+    </div>
+    <div class="form-group">
+      <label class="form-label">Category</label>
+      <select class="form-select" id="nit-cat">
+        <option value="">Select category…</option>
+      </select>
+    </div>
+    <div class="form-group">
+      <label class="form-label">Display Label (optional)</label>
+      <input type="text" class="form-select" id="nit-label" placeholder="Defaults to item_type_id" style="font-size:13px">
+    </div>
+    <div class="modal-actions">
+      <button class="btn btn-secondary" onclick="document.getElementById('new-item-type-modal').classList.remove('open')">Cancel</button>
+      <button class="btn btn-primary" onclick="createItemType()">Create</button>
+    </div>
+  </div>
+</div>
+
 <div class="proc-overlay" id="proc-overlay">
   <div class="proc-card">
     <div class="proc-spinner"></div>
@@ -227,9 +274,19 @@ const API = 'https://orx5k6bt7l.execute-api.eu-west-2.amazonaws.com/dev';
 const KEY = 'v64V6hztQR9g5iQSl0MS27ROwLpZMc7V3k78UpYI';
 const CATS = ['baby-products','bakery','beverages','bread-bakery','canned-goods','cleaning','confectionery','dairy','deli','drinks','eggs','fish-seafood','frozen','fruits','grains','health-beauty','herbs-spices','household','meat-poultry','nuts-seeds','oil-vinegar','other','pasta-rice','pet-food','produce','sauces-condiments','snacks','spices','spreads','vegetables'];
 
-let selectedFile = null;
+let selectedFile     = null;
 let currentReceiptId = null;
+let currentImageUrl  = null;
 let pendingCorrections = {};
+let _itemTypes = [];   // [{item_type_id, category_id, label}, ...]
+
+async function ensureItemTypesLoaded() {
+  if (_itemTypes.length) return;
+  try {
+    const d = await apiFetch('/item-types');
+    _itemTypes = d.item_types || [];
+  } catch(e) { console.warn('Could not load item types:', e); }
+}
 
 async function apiFetch(path, opts={}) {
   const res = await fetch(`${API}${path}`, {
@@ -253,10 +310,84 @@ function showView(name) {
   document.getElementById(`view-${name}`).classList.add('active');
   const nav = document.getElementById(`nav-${name}`);
   if (nav) nav.classList.add('active');
-  document.getElementById('topbar-title').textContent = {dashboard:'Dashboard',receipts:'Receipts',detail:'Receipt Detail'}[name]||name;
+  document.getElementById('topbar-title').textContent = {dashboard:'Dashboard',receipts:'Receipts',detail:'Receipt Detail',mappings:'Item Mappings'}[name]||name;
   document.getElementById('topbar-actions').innerHTML = '';
   if (name==='dashboard') loadDashboard();
   if (name==='receipts') loadReceipts();
+  if (name==='mappings') loadMappings();
+}
+
+async function loadMappings() {
+  document.getElementById('mappings-content').innerHTML = loadingHtml('Loading item types…');
+  await ensureItemTypesLoaded();
+  try {
+    const cats = await apiFetch('/categories').then(d=>d.categories||[]);
+    renderMappings(_itemTypes, cats);
+  } catch(e) { document.getElementById('mappings-content').innerHTML = `<div style="color:var(--danger);padding:20px">Failed to load: ${e.message}</div>`; }
+}
+
+function renderMappings(itemTypes, categories) {
+  if (!itemTypes.length) {
+    document.getElementById('mappings-content').innerHTML = emptyState('No item types yet', 'Create item types to enable two-hop category matching');
+    return;
+  }
+  const catOpts = categories.map(c=>`<option value="${c.category_id||c.name}">${c.name||c.category_id}</option>`).join('');
+  const rows = itemTypes.map(it=>`
+    <tr>
+      <td><span style="font-family:'DM Mono',monospace;font-size:12px">${it.item_type_id}</span></td>
+      <td>${it.label&&it.label!==it.item_type_id?it.label:'<span style="color:var(--text3)">—</span>'}</td>
+      <td>
+        <select class="it-input" id="it-cat-${it.item_type_id}" onchange="updateItemType('${it.item_type_id}',this.value,'${it.label||it.item_type_id}')">
+          ${categories.map(c=>`<option value="${c.category_id||c.name}"${(c.category_id||c.name)===it.category_id?' selected':''}>${c.name||c.category_id}</option>`).join('')}
+        </select>
+      </td>
+      <td><span style="font-size:11px;color:var(--text3)">${it.updated_at?it.updated_at.slice(0,10):'—'}</span></td>
+    </tr>`).join('');
+  document.getElementById('mappings-content').innerHTML = `
+    <table class="map-table">
+      <thead><tr><th>Item Type ID</th><th>Label</th><th>Category</th><th>Updated</th></tr></thead>
+      <tbody>${rows}</tbody>
+    </table>`;
+}
+
+async function updateItemType(itemTypeId, categoryId, label) {
+  try {
+    await apiFetch(`/item-types/${itemTypeId}`, {method:'PUT', body:JSON.stringify({category_id:categoryId,label})});
+    // Update local cache
+    const it = _itemTypes.find(x=>x.item_type_id===itemTypeId);
+    if (it) it.category_id = categoryId;
+    toast(`${itemTypeId} → ${categoryId} saved`,'success');
+  } catch(e) { toast('Save failed: '+e.message,'error'); }
+}
+
+async function openNewItemTypeModal() {
+  const modal = document.getElementById('new-item-type-modal');
+  // Populate category dropdown
+  try {
+    const d = await apiFetch('/categories');
+    const sel = document.getElementById('nit-cat');
+    sel.innerHTML = '<option value="">Select category…</option>';
+    (d.categories||[]).forEach(c=>{
+      const o=document.createElement('option'); o.value=c.category_id||c.name; o.textContent=c.name||c.category_id; sel.appendChild(o);
+    });
+  } catch(e) {}
+  document.getElementById('nit-id').value = '';
+  document.getElementById('nit-label').value = '';
+  modal.classList.add('open');
+}
+
+async function createItemType() {
+  const itemTypeId = document.getElementById('nit-id').value.trim().toLowerCase().replace(/ /g,'_');
+  const categoryId = document.getElementById('nit-cat').value;
+  const label      = document.getElementById('nit-label').value.trim();
+  if (!itemTypeId || !categoryId) { toast('Item type ID and category are required','warning'); return; }
+  try {
+    await apiFetch('/item-types', {method:'POST', body:JSON.stringify({item_type_id:itemTypeId,category_id:categoryId,label:label||itemTypeId})});
+    _itemTypes = []; // reset cache so it reloads
+    document.getElementById('new-item-type-modal').classList.remove('open');
+    toast(`Created item type "${itemTypeId}"`, 'success');
+    loadMappings();
+  } catch(e) { toast('Create failed: '+e.message,'error'); }
 }
 
 async function loadDashboard() {
@@ -305,11 +436,14 @@ function renderList(rs) {
 
 async function openReceipt(id) {
   currentReceiptId = id;
+  currentImageUrl  = null;
   pendingCorrections = {};
   showView('detail');
   document.getElementById('detail-content').innerHTML = loadingHtml('Loading receipt…');
+  await ensureItemTypesLoaded();
   try {
     const d = await apiFetch(`/receipts/${id}`);
+    currentImageUrl = d.image_url || null;
     renderDetail(d.receipt, d.items||[]);
   } catch(e) { toast('Failed to load receipt','error'); }
 }
@@ -319,15 +453,36 @@ function renderDetail(receipt, items) {
   const reviewed   = items.filter(i=>!i.needs_review||i.confirmed).length;
   const pct        = items.length?Math.round(reviewed/items.length*100):0;
   const allExported= items.length>0&&items.every(i=>i.exported_to_excel);
+  const isFailed   = receipt.status === 'failed';
 
-  document.getElementById('topbar-actions').innerHTML = needsRev>0
-    ?`<button class="btn btn-primary btn-sm" onclick="submitCorrections()">Save corrections</button>`:'';
+  const actionBtns = [
+    needsRev>0 ? `<button class="btn btn-primary btn-sm" onclick="submitCorrections()">Save corrections</button>` : '',
+    `<button class="btn btn-secondary btn-sm" onclick="reprocessReceipt('${receipt.receipt_id}')">↺ Reprocess</button>`
+  ].filter(Boolean).join(' ');
+  document.getElementById('topbar-actions').innerHTML = actionBtns;
 
-  const banner = allExported
+  const banner = isFailed
+    ?`<div class="review-banner" style="background:var(--danger-light);border-color:#F5B7B1;color:var(--danger)">✕ Processing failed: ${receipt.error_message||'Unknown error'}. Click Reprocess to try again.</div>`
+    : allExported
     ?`<div class="export-banner">✓ All items exported to master.xlsx</div>`
     : needsRev>0
     ?`<div class="review-banner">⚠ ${needsRev} item${needsRev>1?'s':''} need your review before export</div>`
     :`<div class="export-banner">✓ All items reviewed — export will trigger automatically</div>`;
+
+  const tableHtml = `
+    <table class="items-table">
+      <thead><tr>
+        <th>Item</th><th>Item Type / Category</th><th>Price</th><th>Confidence</th><th>Audit</th>
+      </tr></thead>
+      <tbody>${items.map(item=>renderRow(item)).join('')}</tbody>
+    </table>`;
+
+  const imgPanel = currentImageUrl
+    ? `<div class="receipt-img-panel">
+        <img src="${currentImageUrl}" alt="Receipt photo" onerror="this.parentElement.style.display='none'">
+        <div class="img-label">Receipt photo</div>
+      </div>`
+    : '';
 
   document.getElementById('detail-content').innerHTML = `
     <div style="margin-bottom:20px">
@@ -341,12 +496,27 @@ function renderDetail(receipt, items) {
       <div class="progress-label">${pct}% reviewed · ${needsRev} remaining</div>
     </div>
     ${banner}
-    <table class="items-table">
-      <thead><tr>
-        <th>Item</th><th>Category</th><th>Price</th><th>Confidence</th><th>Audit</th>
-      </tr></thead>
-      <tbody>${items.map(item=>renderRow(item)).join('')}</tbody>
-    </table>`;
+    ${currentImageUrl
+      ? `<div class="detail-grid"><div>${tableHtml}</div>${imgPanel}</div>`
+      : tableHtml
+    }`;
+}
+
+async function reprocessReceipt(id) {
+  if (!confirm('Reprocess this receipt? This will re-run Textract and overwrite all current items.')) return;
+  try {
+    showProc('Reprocessing…', 'Running Textract again');
+    await apiFetch(`/receipts/${id}/process`, {method:'POST', body:JSON.stringify({})});
+    let status='reprocessing', attempts=0;
+    while(['reprocessing','processing','pending'].includes(status) && attempts<24){
+      await sleep(5000); attempts++;
+      try{const r=await apiFetch(`/receipts/${id}`);status=r.receipt?.status;}catch(e){}
+      updateProc('Reprocessing…',`Analysing items… (${attempts*5}s)`);
+    }
+    hideProc();
+    toast('Receipt reprocessed','success');
+    await openReceipt(id);
+  } catch(e){hideProc();toast('Reprocess failed: '+e.message,'error');}
 }
 
 function renderRow(item) {
@@ -361,6 +531,7 @@ function renderRow(item) {
     :`<span class="badge badge-green">✓ Auto</span>`;
 
   const audit = [
+    item.item_type_id     ?`item_type:  "${item.item_type_id}"`:null,
     item.matched_keyword  ?`matched:    "${item.matched_keyword}"`:null,
     item.normalized_name  ?`normalised: "${item.normalized_name}"`:null,
     item.match_source     ?`source:     ${item.match_source}`:null,
@@ -370,18 +541,25 @@ function renderRow(item) {
     item.exported_to_excel?`exported:   ${item.exported_at||'yes'}`:`exported:   not yet`,
   ].filter(Boolean).join('\n');
 
+  // Show item_type_id label, falling back to category
+  const displayCat = item.item_type_id || item.category || 'unknown';
+  const pendVal = pendingCorrections[item.item_seq];
+  const inputVal = pendVal ? (pendVal.label || pendVal.item_type_id || pendVal) : displayCat;
+
   const catCell = needsRev?`
-    <div class="cat-wrap">
+    <div class="cat-wrap" style="min-width:200px">
       <input type="text" class="cat-input" id="ci-${item.item_seq}"
-        value="${pendingCorrections[item.item_seq]||item.category}"
-        oninput="filterCats('${item.item_seq}',this.value)"
+        value="${inputVal}"
+        oninput="filterItemTypes('${item.item_seq}',this.value)"
         onfocus="openDrop('${item.item_seq}')"
         onblur="setTimeout(()=>closeDrop('${item.item_seq}'),160)"
         autocomplete="off">
       <div class="cat-dropdown" id="cd-${item.item_seq}">
-        ${CATS.map(c=>`<div class="cat-option${c===item.category?' active':''}" onmousedown="pickCat('${item.item_seq}','${c}')">${c}</div>`).join('')}
+        ${(_itemTypes.length ? _itemTypes : CATS.map(c=>({item_type_id:c,category_id:c}))).slice(0,80)
+          .map(it=>`<div class="cat-option" onmousedown="pickItemType('${item.item_seq}','${it.item_type_id}','${it.category_id||it.item_type_id}','${it.label||it.item_type_id}')">${it.item_type_id}<span class="cat-type-hint">${it.category_id&&it.category_id!==it.item_type_id?' — '+it.category_id:''}</span></div>`).join('')}
       </div>
-    </div>`:`<span class="tag">${item.category}</span>`;
+    </div>`
+    :`<div><span class="tag">${displayCat}</span>${item.item_type_id&&item.category&&item.item_type_id!==item.category?`<div style="font-size:10px;color:var(--text3);margin-top:2px">${item.category}</div>`:''}</div>`;
 
   return `<tr style="${rowStyle}" id="row-${item.item_seq}">
     <td><div class="item-name">${item.raw_name}</div><div class="item-norm">${item.normalized_name||''}</div></td>
@@ -401,22 +579,28 @@ function renderRow(item) {
   </tr>`;
 }
 
-function filterCats(seq, q) {
+function filterItemTypes(seq, q) {
   const dd = document.getElementById(`cd-${seq}`);
   if (!dd) return;
-  dd.innerHTML = CATS.filter(c=>c.includes(q.toLowerCase()))
-    .map(c=>`<div class="cat-option" onmousedown="pickCat('${seq}','${c}')">${c}</div>`).join('');
+  const src = _itemTypes.length ? _itemTypes : CATS.map(c=>({item_type_id:c,category_id:c,label:c}));
+  const ql  = q.toLowerCase();
+  const filtered = src.filter(it =>
+    it.item_type_id.includes(ql) || (it.category_id||'').includes(ql) || (it.label||'').includes(ql)
+  );
+  dd.innerHTML = filtered.slice(0, 80)
+    .map(it=>`<div class="cat-option" onmousedown="pickItemType('${seq}','${it.item_type_id}','${it.category_id||it.item_type_id}','${it.label||it.item_type_id}')">${it.item_type_id}<span class="cat-type-hint">${it.category_id&&it.category_id!==it.item_type_id?' — '+it.category_id:''}</span></div>`)
+    .join('');
   openDrop(seq);
 }
 function openDrop(seq)  { document.getElementById(`cd-${seq}`)?.classList.add('open'); }
 function closeDrop(seq) { document.getElementById(`cd-${seq}`)?.classList.remove('open'); }
-function pickCat(seq, cat) {
-  pendingCorrections[seq] = cat;
+function pickItemType(seq, itemTypeId, categoryId, label) {
+  pendingCorrections[seq] = {item_type_id: itemTypeId, category: categoryId, label};
   const el = document.getElementById(`ci-${seq}`);
-  if (el) el.value = cat;
+  if (el) el.value = label || itemTypeId;
   closeDrop(seq);
   document.getElementById('topbar-actions').innerHTML =
-    `<button class="btn btn-primary btn-sm" onclick="submitCorrections()">Save corrections</button>`;
+    `<button class="btn btn-primary btn-sm" onclick="submitCorrections()">Save corrections</button> <button class="btn btn-secondary btn-sm" onclick="reprocessReceipt('${currentReceiptId}')">↺ Reprocess</button>`;
 }
 function toggleAudit(seq) { document.getElementById(`ap-${seq}`)?.classList.toggle('open'); }
 
@@ -426,7 +610,12 @@ async function submitCorrections() {
   try {
     const res = await apiFetch(`/receipts/${currentReceiptId}/confirm`, {
       method:'POST',
-      body:JSON.stringify({items:entries.map(([item_seq,category])=>({item_seq,category}))})
+      body:JSON.stringify({items: entries.map(([item_seq, val]) => {
+        if (val && typeof val === 'object') {
+          return {item_seq, item_type_id: val.item_type_id, category: val.category};
+        }
+        return {item_seq, category: val};
+      })})
     });
     toast(`${entries.length} correction${entries.length>1?'s':''} saved`,'success');
     if (res.exported) toast('Receipt exported to master.xlsx ✓','success');

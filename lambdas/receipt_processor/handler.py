@@ -21,19 +21,38 @@ from models import (
 IMAGES_BUCKET = os.environ["IMAGES_BUCKET"]
 textract = boto3.client("textract")
 
-_mapping_cache: dict = {}
+_mapping_cache:    dict = {}
+_item_types_cache: dict = {}   # item_type_id -> {category_id, ...}
 
 
 def _load_cache(store_id: str):
+    global _item_types_cache
     for sid in [store_id, "global"]:
         if sid and sid != "unknown" and sid not in _mapping_cache:
             mappings = db.load_store_mappings(sid)
             _mapping_cache[sid] = {m["normalized_name"]: m for m in mappings}
+    if not _item_types_cache:
+        item_types = db.load_item_types()
+        _item_types_cache = {it["item_type_id"]: it for it in item_types}
 
 
 def _get_from_cache(store_id: str, normalized: str):
-    hit = _mapping_cache.get(store_id, {}).get(normalized)
-    return hit or _mapping_cache.get("global", {}).get(normalized)
+    """Layer 1: store-only exact match. No global fallback."""
+    return _mapping_cache.get(store_id, {}).get(normalized)
+
+
+def _get_mapping_any(store_id: str, normalized: str):
+    """Look up mapping in store OR global cache (used after fuzzy match)."""
+    return (_mapping_cache.get(store_id, {}).get(normalized) or
+            _mapping_cache.get("global", {}).get(normalized))
+
+
+def _resolve_category(item_type_id: str, fallback: str = "other") -> str:
+    """Two-hop: item_type_id -> category_id via in-memory cache."""
+    if not item_type_id:
+        return fallback
+    item_type = _item_types_cache.get(item_type_id)
+    return item_type.get("category_id", fallback) if item_type else fallback
 
 
 def _all_keywords(store_id: str) -> list:
@@ -59,11 +78,18 @@ def normalize(raw: str, strip_prefixes: list = None) -> str:
 
 
 def match_item(normalized: str, store_id: str, strip_prefixes: list):
+    """
+    Returns: (item_type_id, category, source, confidence, trust, needs_review, matched_kw)
+
+    Layer 1: store-exact match only (no global exact).
+    Layer 2: fuzzy match against all keywords (store + global).
+    Layer 3: unknown — user must pick.
+    """
     hit = _get_from_cache(store_id, normalized)
     if hit:
-        src = (MatchSource.STORE_EXACT if hit.get("store_id") == store_id
-               else MatchSource.GLOBAL_EXACT)
-        return hit["category"], src, 1.0, TrustLevel.TRUSTED, False, normalized
+        item_type_id = hit.get("item_type_id", normalized)
+        category     = _resolve_category(item_type_id, hit.get("category", "other"))
+        return item_type_id, category, MatchSource.STORE_EXACT, 1.0, TrustLevel.TRUSTED, False, normalized
 
     keywords = _all_keywords(store_id)
 
@@ -74,10 +100,12 @@ def match_item(normalized: str, store_id: str, strip_prefixes: list):
             best_partial, best_kw = score, kw
 
     if best_partial == 100 and best_kw:
-        mapping = _get_from_cache(store_id, best_kw)
+        mapping = _get_mapping_any(store_id, best_kw)
         if mapping:
-            conf = 0.95
-            return mapping["category"], MatchSource.FUZZY, conf, TrustLevel.CONFIDENT, conf < THRESHOLD_SILENT, best_kw
+            conf         = 0.95
+            item_type_id = mapping.get("item_type_id", best_kw)
+            category     = _resolve_category(item_type_id, mapping.get("category", "other"))
+            return item_type_id, category, MatchSource.FUZZY, conf, TrustLevel.CONFIDENT, conf < THRESHOLD_SILENT, best_kw
 
     if keywords:
         cutoff = int(THRESHOLD_GUESS * 100)
@@ -88,13 +116,15 @@ def match_item(normalized: str, store_id: str, strip_prefixes: list):
         )
         if result:
             best_kw, score, _ = result
-            mapping = _get_from_cache(store_id, best_kw)
+            mapping = _get_mapping_any(store_id, best_kw)
             if mapping:
-                conf  = round(score / 100, 4)
-                trust = TrustLevel.CONFIDENT if conf >= THRESHOLD_SILENT else TrustLevel.TENTATIVE
-                return mapping["category"], MatchSource.FUZZY, conf, trust, conf < THRESHOLD_SILENT, best_kw
+                conf         = round(score / 100, 4)
+                trust        = TrustLevel.CONFIDENT if conf >= THRESHOLD_SILENT else TrustLevel.TENTATIVE
+                item_type_id = mapping.get("item_type_id", best_kw)
+                category     = _resolve_category(item_type_id, mapping.get("category", "other"))
+                return item_type_id, category, MatchSource.FUZZY, conf, trust, conf < THRESHOLD_SILENT, best_kw
 
-    return "other", MatchSource.UNKNOWN, 0.0, TrustLevel.TENTATIVE, True, None
+    return None, "other", MatchSource.UNKNOWN, 0.0, TrustLevel.TENTATIVE, True, None
 
 
 def run_textract(bucket: str, s3_key: str) -> dict:
@@ -168,7 +198,7 @@ def process_receipt(receipt_id: str, bucket: str, s3_key: str, store_id: str = "
             if not norm:
                 continue
 
-            category, source, conf, trust, needs_review, matched_kw = match_item(norm, store_id, strip_prefixes)
+            item_type_id, category, source, conf, trust, needs_review, matched_kw = match_item(norm, store_id, strip_prefixes)
             if needs_review:
                 needs_review_count += 1
 
@@ -188,6 +218,7 @@ def process_receipt(receipt_id: str, bucket: str, s3_key: str, store_id: str = "
                 item_seq=str(i).zfill(4),
                 raw_name=raw,
                 normalized_name=norm,
+                item_type_id=item_type_id,
                 category=category,
                 original_category=category,
                 price=line["price"],
@@ -205,14 +236,14 @@ def process_receipt(receipt_id: str, bucket: str, s3_key: str, store_id: str = "
             receipt_items.append(item)
 
             if source == MatchSource.FUZZY and conf >= THRESHOLD_REVIEW and identified:
-                db.write_learned_mapping(store_id, norm, category, conf, "fuzzy")
+                db.write_learned_mapping(store_id, norm, item_type_id or norm, category, conf, "fuzzy")
                 _mapping_cache.setdefault(store_id, {})[norm] = {
-                    "normalized_name": norm, "store_id": store_id, "category": category
+                    "normalized_name": norm, "store_id": store_id,
+                    "item_type_id": item_type_id or norm, "category": category
                 }
 
-            if source in (MatchSource.STORE_EXACT, MatchSource.GLOBAL_EXACT):
-                prefix = store_id if source == MatchSource.STORE_EXACT else "global"
-                db.promote_mapping_if_ready(f"{prefix}#{norm}")
+            if source == MatchSource.STORE_EXACT:
+                db.promote_mapping_if_ready(f"{store_id}#{norm}")
 
         db.delete_items(receipt_id)
         db.save_items(receipt_id, [i.model_dump() for i in receipt_items])

@@ -1,6 +1,6 @@
 <mxfile host="app.diagrams.net" agent="Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/145.0.0.0 Safari/537.36" version="29.6.0">
   <diagram id="7PN1Y97BilsKAZ5jS87R" name="Page-1">
-    <mxGraphModel dx="1377" dy="758" grid="1" gridSize="10" guides="1" tooltips="1" connect="1" arrows="1" fold="1" page="1" pageScale="1" pageWidth="3200" pageHeight="5800" math="0" shadow="0">
+    <mxGraphModel dx="1427" dy="826" grid="1" gridSize="10" guides="1" tooltips="1" connect="1" arrows="1" fold="1" page="1" pageScale="1" pageWidth="3200" pageHeight="5800" math="0" shadow="0">
       <root>
         <mxCell id="0" />
         <mxCell id="1" parent="0" />
@@ -115,7 +115,7 @@
         <mxCell id="lam_parse" parent="1" style="rounded=1;fillColor=#e1bee7;strokeColor=#8e24aa;fontSize=10;align=left;spacingLeft=6;" value="Step 3: Parse Textract response&#xa;━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━&#xa;Extract: date, total, line items&#xa;Strip brand prefixes (e.g. &#39;Tesco Finest&#39;)&#xa;Normalise: lowercase, remove weight/size&#xa;━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━&#xa;DISCARD AFTER TOTAL LINE:&#xa;All lines after TOTAL are ignored:&#xa;• Credit card type / last 4 digits&#xa;• Points earned / Clubcard savings&#xa;• VAT summary / cashback lines&#xa;These are never written to any table" vertex="1">
           <mxGeometry height="160" width="278" x="553" y="880" as="geometry" />
         </mxCell>
-        <mxCell id="s3_bar" parent="1" style="text;html=1;strokeColor=#1b5e20;fillColor=#c8e6c9;align=left;fontSize=11;fontStyle=1;fontColor=#1b5e20;rounded=1;spacingLeft=8;" value="③ HYBRID CATEGORY MATCHING — 5 layers per line item. NEW Layer 0: product/brand name &#x2192; item type &#x2192; category (manually curated, grows as you scan)." vertex="1">
+        <mxCell id="s3_bar" parent="1" style="text;html=1;strokeColor=#1b5e20;fillColor=#c8e6c9;align=left;fontSize=11;fontStyle=1;fontColor=#1b5e20;rounded=1;spacingLeft=8;" value="③ HYBRID CATEGORY MATCHING — 5 layers per line item. NEW Layer 0: product/brand name → item type → category (manually curated, grows as you scan)." vertex="1">
           <mxGeometry height="26" width="1780" x="20" y="1062" as="geometry" />
         </mxCell>
         <mxCell id="threshold_legend" parent="1" style="rounded=1;fillColor=#fff9c4;strokeColor=#f9a825;fontSize=10;align=left;spacingLeft=6;" value="📊 CONFIDENCE THRESHOLDS&#xa;━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━&#xa;≥ 92%  → auto-categorise silently. No review. Covers OCR noise (0→O, 1→I, rn→m).&#xa;75–91% → auto-categorise BUT flag for review. After user confirms 3× → promoted to trusted, no more prompts.&#xa;50–74% → always flag for review. Category shown as best guess, clearly marked uncertain.&#xa;&lt; 50%  → shown as Unknown. User picks category from scratch. No guess made." vertex="1">
@@ -305,7 +305,9 @@
           </mxGeometry>
         </mxCell>
         <mxCell id="a_lamu4_lbl" connectable="0" parent="a_lamu4_s3" style="edgeLabel;fontSize=9;fontColor=#2e7d32;" value="request presigned URL" vertex="1">
-          <mxGeometry relative="1" as="geometry" />
+          <mxGeometry relative="1" as="geometry">
+            <mxPoint x="-28" y="5" as="offset" />
+          </mxGeometry>
         </mxCell>
         <mxCell id="a_lamu5_pwa" edge="1" parent="1" source="lam_upload_bg" style="edgeStyle=orthogonalEdgeStyle;strokeColor=#1565c0;strokeWidth=2;dashed=1;exitX=0;exitY=0.95;exitDx=0;exitDy=0;entryX=1;entryY=0.5;" target="pwa_upload_direct">
           <mxGeometry relative="1" as="geometry">
@@ -528,20 +530,19 @@
         <mxCell id="a_res_s3" edge="1" parent="1" source="lam_restore" style="edgeStyle=orthogonalEdgeStyle;strokeColor=#2e7d32;strokeWidth=2;exitX=1;exitY=0.5;exitDx=0;exitDy=0;entryX=0;entryY=0.5;" target="s3_restore_note">
           <mxGeometry relative="1" as="geometry" />
         </mxCell>
-
         <mxCell id="l0_bg" parent="1" style="rounded=1;fillColor=#FFF3E0;strokeColor=#E65100;" value="" vertex="1">
           <mxGeometry height="154" width="278" x="553" y="1096" as="geometry" />
         </mxCell>
         <mxCell id="l0_ttl" parent="1" style="text;html=1;strokeColor=none;fillColor=none;align=center;fontSize=11;fontStyle=1;fontColor=#BF360C;" value="Layer 0: Product / Brand Name Match (NEW)" vertex="1">
           <mxGeometry height="20" width="272" x="556" y="1102" as="geometry" />
         </mxCell>
-        <mxCell id="l0_det" parent="1" style="rounded=1;fillColor=#FFF3E0;strokeColor=#E65100;fontSize=10;align=left;spacingLeft=6;" value="Lookup normalised item name in grocery-product-types&#xa;&#x2500;&#x2500;&#x2500;&#x2500;&#x2500;&#x2500;&#x2500;&#x2500;&#x2500;&#x2500;&#x2500;&#x2500;&#x2500;&#x2500;&#x2500;&#x2500;&#x2500;&#x2500;&#x2500;&#x2500;&#x2500;&#x2500;&#x2500;&#x2500;&#x2500;&#x2500;&#x2500;&#x2500;&#x2500;&#x2500;&#x2500;&#x2500;&#x2500;&#x2500;&#x2500;&#x2500;&#x2500;&#x2500;&#x2500;&#x2500;&#x2500;&#x2500;&#x2500;&#xa;HIT &#x2192; item_type &#x2192; category  (confidence = 1.0)&#xa;e.g. &quot;suckies&quot; &#x2192; yoghurt &#x2192; dairy-eggs&#xa;e.g. &quot;js choc mini muffins&quot; &#x2192; muffin &#x2192; snacks&#xa;Manually curated as you scan. Grows over time.&#xa;&#x2500;&#x2500;&#x2500;&#x2500;&#x2500;&#x2500;&#x2500;&#x2500;&#x2500;&#x2500;&#x2500;&#x2500;&#x2500;&#x2500;&#x2500;&#x2500;&#x2500;&#x2500;&#x2500;&#x2500;&#x2500;&#x2500;&#x2500;&#x2500;&#x2500;&#x2500;&#x2500;&#x2500;&#x2500;&#x2500;&#x2500;&#x2500;&#x2500;&#x2500;&#x2500;&#x2500;&#x2500;&#x2500;&#x2500;&#x2500;&#x2500;&#x2500;&#x2500;&#xa;MISS &#x2192; proceed to Layer 1" vertex="1">
+        <mxCell id="l0_det" parent="1" style="rounded=1;fillColor=#FFF3E0;strokeColor=#E65100;fontSize=10;align=left;spacingLeft=6;" value="Lookup normalised item name in grocery-product-types&#xa;───────────────────────────────────────────&#xa;HIT → item_type → category  (confidence = 1.0)&#xa;e.g. &quot;suckies&quot; → yoghurt → dairy-eggs&#xa;e.g. &quot;js choc mini muffins&quot; → muffin → snacks&#xa;Manually curated as you scan. Grows over time.&#xa;───────────────────────────────────────────&#xa;MISS → proceed to Layer 1" vertex="1">
           <mxGeometry height="118" width="266" x="558" y="1122" as="geometry" />
         </mxCell>
         <mxCell id="a_l0_l1" edge="1" parent="1" source="l0_bg" style="edgeStyle=orthogonalEdgeStyle;strokeColor=#6a1b9a;strokeWidth=2;exitX=0.5;exitY=1;exitDx=0;exitDy=0;entryX=0.5;entryY=0;" target="l1_bg">
           <mxGeometry relative="1" as="geometry" />
         </mxCell>
-        <mxCell id="a_l0l1_lbl" connectable="0" parent="a_l0_l1" style="edgeLabel;fontSize=9;fontColor=#6a1b9a;" value="miss &#x2192;" vertex="1">
+        <mxCell id="a_l0l1_lbl" connectable="0" parent="a_l0_l1" style="edgeLabel;fontSize=9;fontColor=#6a1b9a;" value="miss →" vertex="1">
           <mxGeometry relative="1" as="geometry" />
         </mxCell>
         <mxCell id="a_l0_pt" edge="1" parent="1" source="l0_bg" style="edgeStyle=orthogonalEdgeStyle;strokeColor=#E65100;strokeWidth=2;exitX=1;exitY=0.5;exitDx=0;exitDy=0;entryX=0;entryY=0.5;" target="db_product_types">
@@ -550,7 +551,7 @@
         <mxCell id="a_l0_pt_lbl" connectable="0" parent="a_l0_pt" style="edgeLabel;fontSize=9;fontColor=#E65100;" value="lookup item_key" vertex="1">
           <mxGeometry relative="1" as="geometry" />
         </mxCell>
-        <mxCell id="db_product_types" parent="1" style="rounded=1;fillColor=#ad1457;strokeColor=#880e4f;fontColor=#fff;fontSize=10;align=left;spacingLeft=6;" value="&#x1F5C4;&#xFE0F; grocery-product-types (NEW TABLE)&#xa;&#x2500;&#x2500;&#x2500;&#x2500;&#x2500;&#x2500;&#x2500;&#x2500;&#x2500;&#x2500;&#x2500;&#x2500;&#x2500;&#x2500;&#x2500;&#x2500;&#x2500;&#x2500;&#x2500;&#x2500;&#x2500;&#x2500;&#x2500;&#x2500;&#x2500;&#x2500;&#x2500;&#x2500;&#x2500;&#x2500;&#x2500;&#x2500;&#x2500;&#x2500;&#x2500;&#x2500;&#x2500;&#x2500;&#x2500;&#x2500;&#x2500;&#x2500;&#x2500;&#xa;PK: item_key  (normalised brand or product fragment)&#xa;item_type    : yoghurt, muffin, crisps...  (canonical product type)&#xa;category_id  : dairy-eggs, snacks...  (links to categories table)&#xa;source       : manual | learned&#xa;created_at, updated_at&#xa;&#x2500;&#x2500;&#x2500;&#x2500;&#x2500;&#x2500;&#x2500;&#x2500;&#x2500;&#x2500;&#x2500;&#x2500;&#x2500;&#x2500;&#x2500;&#x2500;&#x2500;&#x2500;&#x2500;&#x2500;&#x2500;&#x2500;&#x2500;&#x2500;&#x2500;&#x2500;&#x2500;&#x2500;&#x2500;&#x2500;&#x2500;&#x2500;&#x2500;&#x2500;&#x2500;&#x2500;&#x2500;&#x2500;&#x2500;&#x2500;&#x2500;&#x2500;&#x2500;&#xa;EXAMPLE ROWS:&#xa;item_key                 item_type    category_id&#xa;suckies                  yoghurt      dairy-eggs&#xa;js choc mini muffins     muffin       snacks&#xa;activia                  yoghurt      dairy-eggs&#xa;innocent smoothie        smoothie     drinks&#xa;&#x2500;&#x2500;&#x2500;&#x2500;&#x2500;&#x2500;&#x2500;&#x2500;&#x2500;&#x2500;&#x2500;&#x2500;&#x2500;&#x2500;&#x2500;&#x2500;&#x2500;&#x2500;&#x2500;&#x2500;&#x2500;&#x2500;&#x2500;&#x2500;&#x2500;&#x2500;&#x2500;&#x2500;&#x2500;&#x2500;&#x2500;&#x2500;&#x2500;&#x2500;&#x2500;&#x2500;&#x2500;&#x2500;&#x2500;&#x2500;&#x2500;&#x2500;&#x2500;&#xa;Built manually via the review screen: user sees unknown item&#xa;&#x2192; assigns item_type &#x2192; saved here &#x2192; auto-matched on next scan." vertex="1">
+        <mxCell id="db_product_types" parent="1" style="rounded=1;fillColor=#ad1457;strokeColor=#880e4f;fontColor=#fff;fontSize=10;align=left;spacingLeft=6;" value="🗄️ grocery-product-types (NEW TABLE)&#xa;───────────────────────────────────────────&#xa;PK: item_key  (normalised brand or product fragment)&#xa;item_type    : yoghurt, muffin, crisps...  (canonical product type)&#xa;category_id  : dairy-eggs, snacks...  (links to categories table)&#xa;source       : manual | learned&#xa;created_at, updated_at&#xa;───────────────────────────────────────────&#xa;EXAMPLE ROWS:&#xa;item_key                 item_type    category_id&#xa;suckies                  yoghurt      dairy-eggs&#xa;js choc mini muffins     muffin       snacks&#xa;activia                  yoghurt      dairy-eggs&#xa;innocent smoothie        smoothie     drinks&#xa;───────────────────────────────────────────&#xa;Built manually via the review screen: user sees unknown item&#xa;→ assigns item_type → saved here → auto-matched on next scan." vertex="1">
           <mxGeometry height="290" width="644" x="1153" y="1096" as="geometry" />
         </mxCell>
       </root>

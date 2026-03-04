@@ -483,26 +483,58 @@ def seed_retailers(table):
     print("  Done.")
 
 
+def seed_item_types(table):
+    """
+    Seed grocery-item-types table.
+    Each keyword becomes a canonical item_type_id pointing to its category.
+    Two-hop chain: OCR → item_type_id (MappingsTable) → category_id (ItemTypesTable).
+    Changing category_id here retroactively updates all past receipts.
+    """
+    now   = datetime.now(timezone.utc).isoformat()
+    items = []
+    seen  = set()
+    for cat in CATEGORIES:
+        for kw in cat.get("keywords", []):
+            item_type_id = kw.lower().strip()
+            if item_type_id in seen:
+                continue
+            seen.add(item_type_id)
+            items.append({
+                "item_type_id": item_type_id,
+                "category_id":  cat["category_id"],
+                "created_at":   now
+            })
+
+    total = len(items)
+    print(f"\n  Seeding {total} item types...")
+    with table.batch_writer() as batch:
+        for it in items:
+            batch.put_item(Item=it)
+    print(f"  Done - {total} item types written.")
+
+
 def seed_mappings(table):
     """
-    Seed global keyword->category mappings.
+    Seed global keyword->item_type mappings.
     All seeded mappings use store_id = "global" and trust = "trusted".
     mapping_key format: "global#normalized_name"
+    Two-hop: mapping stores item_type_id; category resolved via ItemTypesTable.
     """
     now      = datetime.now(timezone.utc).isoformat()
     mappings = []
 
     for cat in CATEGORIES:
         for kw in cat.get("keywords", []):
-            normalized = kw.lower().strip()
+            normalized  = kw.lower().strip()
             mapping_key = f"{GLOBAL_STORE}#{normalized}"
             mappings.append({
                 "mapping_key":     mapping_key,
                 "store_id":        GLOBAL_STORE,
                 "normalized_name": normalized,
-                "category":        cat["category_id"],
+                "item_type_id":    normalized,   # two-hop: keyword IS the item_type
+                "category":        cat["category_id"],  # kept for backwards compat
                 "confidence":      "1.00",
-                "match_count":     10,      # Pre-trusted from day one
+                "match_count":     10,
                 "trust":           "trusted",
                 "source":          "seed",
                 "created_at":      now,
@@ -523,6 +555,7 @@ def verify_tables(client, env, mappings_table_override=None):
     required = [
         f"grocery-categories-{env}",
         f"grocery-retailers-{env}",
+        f"grocery-item-types-{env}",
         mappings_name,
         f"grocery-receipts-{env}",
         f"grocery-items-{env}"
@@ -562,19 +595,20 @@ def main():
     mappings_table_name = args.mappings_table or f"grocery-mappings-{args.env}"
 
     verify_tables(client, args.env, mappings_table_override=mappings_table_name)
-    seed_categories(db.Table(f"grocery-categories-{args.env}"))
-    seed_retailers( db.Table(f"grocery-retailers-{args.env}"))
-    seed_mappings(  db.Table(mappings_table_name))
+    seed_categories( db.Table(f"grocery-categories-{args.env}"))
+    seed_retailers(  db.Table(f"grocery-retailers-{args.env}"))
+    seed_item_types( db.Table(f"grocery-item-types-{args.env}"))
+    seed_mappings(   db.Table(mappings_table_name))
 
     print(f"  Mappings table used: {mappings_table_name}")
 
     print("\n" + "=" * 55)
     print("  Seed complete! Database is ready.")
-    print("  Hybrid matching active:")
+    print("  Hybrid matching active (3-layer two-hop):")
     print("    Layer 1 → store-scoped exact  (built as you scan)")
-    print("    Layer 2 → global exact        (607 keywords seeded)")
-    print("    Layer 3 → in-memory fuzzy/partial")
-    print("    Layer 4 → flag for review")
+    print("    Layer 2 → in-memory fuzzy/partial (600+ keywords)")
+    print("    Layer 3 → flag for review")
+    print("  Two-hop: OCR → item_type_id → category (via ItemTypes table)")
     print("=" * 55 + "\n")
 
 

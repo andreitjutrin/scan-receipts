@@ -13,6 +13,7 @@ import dynamo_client as db
 def lambda_handler(event, context):
     method = event.get("httpMethod", "")
     path   = event.get("path", "")
+    params = event.get("pathParameters") or {}
 
     try:
         if method == "GET" and "/categories" in path:
@@ -40,6 +41,48 @@ def lambda_handler(event, context):
             }
             db.save_retailer(retailer)
             return _ok({"retailer_id": retailer_id, "created": True})
+
+        # -------------------------------------------------------------------
+        # ITEM TYPES — curated list of item_type_id -> category_id
+        # -------------------------------------------------------------------
+        elif method == "GET" and "/item-types" in path:
+            item_types = db.load_item_types()
+            return _ok({"item_types": item_types, "count": len(item_types)})
+
+        elif method == "POST" and "/item-types" in path:
+            body         = json.loads(event.get("body") or "{}")
+            item_type_id = body.get("item_type_id", "").strip().lower().replace(" ", "_")
+            category_id  = body.get("category_id", "").strip()
+            label        = body.get("label", "").strip()
+            if not item_type_id or not category_id:
+                return _error(400, "item_type_id and category_id are required")
+            item_type = db.save_item_type(item_type_id, category_id, label or item_type_id)
+            return _ok({"item_type": item_type, "created": True})
+
+        elif method == "PUT" and "/item-types/" in path:
+            item_type_id = params.get("item_type_id", "")
+            if not item_type_id:
+                return _error(400, "item_type_id is required in path")
+            body        = json.loads(event.get("body") or "{}")
+            category_id = body.get("category_id", "").strip()
+            label       = body.get("label", "").strip()
+            if not category_id:
+                return _error(400, "category_id is required")
+            existing = db.get_item_type(item_type_id)
+            if not existing:
+                return _error(404, f"item_type_id '{item_type_id}' not found")
+            item_type = db.save_item_type(item_type_id, category_id,
+                                          label or existing.get("label", item_type_id))
+            return _ok({"item_type": item_type, "updated": True})
+
+        # -------------------------------------------------------------------
+        # MAPPINGS — view existing OCR->item_type mappings
+        # -------------------------------------------------------------------
+        elif method == "GET" and "/mappings" in path:
+            qp       = event.get("queryStringParameters") or {}
+            store_id = qp.get("store_id")
+            mappings = db.list_all_mappings(store_id)
+            return _ok({"mappings": mappings, "count": len(mappings)})
 
         else:
             return _error(404, "Not found")

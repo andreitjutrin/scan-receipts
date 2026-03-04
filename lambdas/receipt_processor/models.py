@@ -70,6 +70,7 @@ class ReceiptItem(BaseModel):
     category:         str          = "unknown"   # "unknown" until matched or user picks
     price:            str          = "0.00"      # string to avoid DynamoDB Decimal issues
     quantity:         str          = "1"
+    item_type_id:        Optional[str] = None   # two-hop: OCR -> item_type -> category
     match_confidence:    float         = 0.0
     match_source:        MatchSource   = MatchSource.UNKNOWN
     matched_keyword:     Optional[str] = None
