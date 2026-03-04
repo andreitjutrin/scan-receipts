@@ -87,8 +87,16 @@ def match_item(normalized: str, store_id: str, strip_prefixes: list):
     """
     hit = _get_from_cache(store_id, normalized)
     if hit:
-        item_type_id = hit.get("item_type_id", normalized)
-        category     = _resolve_category(item_type_id, hit.get("category", "other"))
+        item_type_id = hit.get("item_type_id")   # don't fall back to normalized
+        if not item_type_id:
+            # Old mapping without item_type_id — infer from keyword matching
+            for kw in _all_keywords(store_id):
+                if fuzz.token_set_ratio(normalized, kw) >= 75:
+                    kw_map = _get_mapping_any(store_id, kw)
+                    if kw_map:
+                        item_type_id = kw_map.get("item_type_id", kw)
+                        break
+        category = _resolve_category(item_type_id, hit.get("category", "other"))
         return item_type_id, category, MatchSource.STORE_EXACT, 1.0, TrustLevel.TRUSTED, False, normalized
 
     keywords = _all_keywords(store_id)
