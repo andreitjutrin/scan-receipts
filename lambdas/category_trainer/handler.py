@@ -1,5 +1,5 @@
 ﻿"""
-Reference Lambda — categories, retailers reference data.
+Reference Lambda ' categories, retailers reference data.
 """
 
 import json
@@ -43,7 +43,7 @@ def lambda_handler(event, context):
             return _ok({"retailer_id": retailer_id, "created": True})
 
         # -------------------------------------------------------------------
-        # ITEM TYPES — curated list of item_type_id -> category_id
+        # ITEM TYPES ' curated list of item_type_id -> category_id
         # -------------------------------------------------------------------
         elif method == "GET" and "/item-types" in path:
             item_types = db.load_item_types()
@@ -76,7 +76,7 @@ def lambda_handler(event, context):
             return _ok({"item_type": item_type, "updated": True})
 
         # -------------------------------------------------------------------
-        # MAPPINGS — view existing OCR->item_type mappings
+        # MAPPINGS ' view existing OCR->item_type mappings
         # -------------------------------------------------------------------
         elif method == "GET" and "/mappings" in path:
             qp       = event.get("queryStringParameters") or {}

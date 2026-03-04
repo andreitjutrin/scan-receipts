@@ -1,5 +1,5 @@
 ﻿"""
-Processor Lambda — triggered automatically by S3 when a photo lands.
+Processor Lambda ' triggered automatically by S3 when a photo lands.
 """
 
 import json
@@ -83,7 +83,7 @@ def match_item(normalized: str, store_id: str, strip_prefixes: list):
 
     Layer 1: store-exact match only (no global exact).
     Layer 2: fuzzy match against all keywords (store + global).
-    Layer 3: unknown — user must pick.
+    Layer 3: unknown ' user must pick.
     """
     hit = _get_from_cache(store_id, normalized)
     if hit:

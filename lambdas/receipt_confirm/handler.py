@@ -1,6 +1,6 @@
 ﻿import os
 """
-Receipts Lambda — CRUD for receipts and line items.
+Receipts Lambda ' CRUD for receipts and line items.
 """
 
 import json
@@ -90,7 +90,7 @@ def _confirm_receipt(receipt_id, event):
         if item_type_id and item_type_id in all_item_types:
             category = all_item_types[item_type_id].get("category_id", category)
         elif item_type_id:
-            # Unknown item_type_id — treat item_type_id as the category key
+            # Unknown item_type_id ' treat item_type_id as the category key
             pass
 
         db.update_item_category(receipt_id, item_seq, category, item_type_id=item_type_id)
