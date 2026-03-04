@@ -607,6 +607,24 @@ def get_retailer(retailer_id: str) -> Optional[dict]:
     return resp.get("Item")
 
 
+def detect_retailer(header_text: str) -> tuple[str, bool]:
+    """
+    Match receipt header text against known retailer header_patterns.
+    Returns (retailer_id, identified). Falls back to ("unknown", False).
+    """
+    if not header_text:
+        return "unknown", False
+    text_lower = header_text.lower()
+    retailers  = get_all_retailers()
+    for r in retailers:
+        for pattern in r.get("header_patterns", []):
+            if pattern.lower() in text_lower:
+                logger.info("Detected retailer: %s (pattern: %s)", r["retailer_id"], pattern)
+                return r["retailer_id"], True
+    logger.info("Could not detect retailer from header text")
+    return "unknown", False
+
+
 def save_retailer(retailer: dict):
     db().Table(RETAILERS_TABLE).put_item(Item=retailer)
 
