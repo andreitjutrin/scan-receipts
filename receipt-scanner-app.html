@@ -4,7 +4,9 @@
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>Receipt Scanner</title>
-<link href="https://fonts.googleapis.com/css2?family=DM+Sans:wght@300;400;500;600&family=DM+Mono:wght@400;500&display=swap" rel="stylesheet">
+<script src="config.js"></script>
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=DM+Sans:wght@300;400;500;600&family=DM+Mono:wght@400;500&display=optional" rel="stylesheet">
 <style>
 :root {
   --bg:#F7F6F3; --surface:#FFFFFF; --surface2:#F0EFEB; --border:#E5E3DC;
@@ -18,7 +20,9 @@
   --radius:10px; --radius-sm:6px; --radius-lg:16px;
 }
 *{box-sizing:border-box;margin:0;padding:0}
+html,body{overflow-x:hidden}
 body{font-family:'DM Sans',sans-serif;background:var(--bg);color:var(--text);min-height:100vh;font-size:14px;line-height:1.5}
+.app{overflow-x:hidden}
 .app{display:flex;height:100vh;overflow:hidden}
 .sidebar{width:220px;flex-shrink:0;background:var(--surface);border-right:1px solid var(--border);display:flex;flex-direction:column}
 .sidebar-logo{padding:20px 20px 16px;border-bottom:1px solid var(--border)}
@@ -88,8 +92,12 @@ body{font-family:'DM Sans',sans-serif;background:var(--bg);color:var(--text);min
 .cat-dropdown.open{display:block}
 .cat-option{padding:7px 10px;font-size:12px;cursor:pointer;transition:background 0.1s}
 .cat-option:hover,.cat-option.active{background:var(--accent-light);color:var(--accent)}
-.audit-btn{padding:3px 7px;font-size:11px;border:1px solid var(--border);border-radius:4px;background:none;color:var(--text3);cursor:pointer;font-family:'DM Mono',monospace;transition:all 0.15s}
+.cat-option-create{color:var(--accent);border-top:1px solid var(--border);font-style:italic}
+.audit-btn{padding:5px 10px;font-size:13px;border:1px solid var(--border);border-radius:4px;background:none;color:var(--text3);cursor:pointer;font-family:'DM Mono',monospace;transition:all 0.15s}
 .audit-btn:hover{border-color:var(--accent);color:var(--accent);background:var(--accent-light)}
+.expense-btn{padding:5px 10px;font-size:13px;border:1px solid var(--border);border-radius:4px;background:none;color:var(--text3);cursor:pointer;font-family:inherit;transition:all 0.15s}
+.expense-btn:hover{border-color:#D97706;color:#D97706}
+.expense-btn.active{background:#FEF3C7;border-color:#D97706;color:#92400E;font-weight:600}
 .audit-panel{background:var(--surface2);border:1px solid var(--border);border-radius:var(--radius-sm);padding:10px 12px;font-size:11px;font-family:'DM Mono',monospace;color:var(--text2);line-height:2;display:none;margin-top:6px;white-space:pre}
 .audit-panel.open{display:block}
 .modal-overlay{position:fixed;inset:0;background:rgba(0,0,0,0.3);display:none;align-items:center;justify-content:center;z-index:200;backdrop-filter:blur(2px)}
@@ -119,10 +127,14 @@ body{font-family:'DM Sans',sans-serif;background:var(--bg);color:var(--text);min
 .toast{background:var(--text);color:white;padding:10px 16px;border-radius:var(--radius-sm);font-size:13px;box-shadow:var(--shadow-md);animation:toastIn 0.2s ease;max-width:320px}
 .toast.success{background:var(--accent)}.toast.error{background:var(--danger)}.toast.warning{background:#C4763A}
 @keyframes toastIn{from{opacity:0;transform:translateX(12px)}to{opacity:1;transform:translateX(0)}}
+.skel-bar{background:var(--surface2);border-radius:4px;animation:skel 1.4s ease-in-out infinite}
+@keyframes skel{0%,100%{opacity:.45}50%{opacity:.9}}
 .empty{text-align:center;padding:60px 20px;color:var(--text3)}
 .empty-icon{font-size:36px;margin-bottom:12px}
 .empty-title{font-size:15px;font-weight:600;color:var(--text2);margin-bottom:4px}
 .sec-header{display:flex;align-items:center;justify-content:space-between;margin-bottom:14px}
+.starling-header-top{display:flex;align-items:center}
+.starling-header-actions{display:flex;align-items:center;gap:8px}
 .sec-title{font-size:13px;font-weight:600;color:var(--text2);text-transform:uppercase;letter-spacing:0.5px}
 ::-webkit-scrollbar{width:5px}::-webkit-scrollbar-track{background:transparent}::-webkit-scrollbar-thumb{background:var(--border);border-radius:3px}
 .receipt-img-panel{position:sticky;top:0;background:var(--surface);border:1px solid var(--border);border-radius:var(--radius);padding:12px;box-shadow:var(--shadow);align-self:start}
@@ -139,7 +151,7 @@ body{font-family:'DM Sans',sans-serif;background:var(--bg);color:var(--text);min
   .menu-btn{display:flex;align-items:center}
   .app{height:auto;min-height:100vh;overflow:visible}
   .main{overflow:visible;display:flex;flex-direction:column}
-  .content{overflow-y:visible;padding:16px}
+  .content{overflow-y:visible;padding:12px}
   .sidebar{position:fixed;left:-260px;top:0;bottom:0;width:260px;z-index:500;transition:left 0.25s ease;box-shadow:var(--shadow-lg)}
   .sidebar.open{left:0}
   .sidebar-backdrop.open{display:block}
@@ -148,9 +160,67 @@ body{font-family:'DM Sans',sans-serif;background:var(--bg);color:var(--text);min
   .detail-grid .receipt-img-panel img{max-height:60vh;width:auto;max-width:100%;margin:0 auto;display:block}
   .stats-grid{grid-template-columns:1fr 1fr}
   .receipt-date,.receipt-items{display:none}
-  .items-table th:nth-child(5),.items-table td:nth-child(5),
-  .items-table th:nth-child(6),.items-table td:nth-child(6){display:none}
+  .receipt-store{min-width:0;flex:1;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+  .receipt-total{min-width:0}
+  .sec-header{flex-wrap:wrap;gap:8px}
+  .modal-overlay{align-items:flex-start;padding:16px 12px}
+  .modal{width:100%;max-height:88vh;overflow-y:auto;border-radius:var(--radius)}
+  /* Topbar wraps on small screens */
+  .topbar{height:auto;min-height:52px;flex-wrap:wrap;padding:8px 12px;gap:6px}
+  #topbar-actions{display:flex;flex-wrap:wrap;gap:6px}
+  /* Receipt list rows: tighter on mobile */
+  .receipt-row{padding:10px 12px;gap:8px}
+  .badge-exported{display:none}
+  /* ── Items table → card layout ── */
+  .table-scroll{overflow-x:visible}
+  .items-table,.items-table tbody{display:block;border:none;box-shadow:none;background:transparent;border-radius:0;min-width:0!important;width:100%}
+  .items-table thead{display:none}
+  .items-table tr{display:grid;grid-template-columns:1fr 1fr;gap:6px 8px;background:var(--surface);border:1px solid var(--border);border-radius:var(--radius);padding:12px;margin-bottom:8px;box-shadow:var(--shadow)}
+  .items-table tr:hover td{background:transparent}
+  .items-table td{padding:0;border:none!important;vertical-align:middle}
+  /* Row 1: item name full width */
+  .items-table td:nth-child(1){grid-column:1/-1}
+  /* Row 2: item type | category */
+  .items-table td:nth-child(2){grid-column:1}
+  .items-table td:nth-child(3){grid-column:2}
+  /* Row 3: price | action buttons */
+  .items-table td:nth-child(4){grid-column:1;align-self:center}
+  .items-table td:nth-child(5){display:none}
+  .items-table td:nth-child(6){grid-column:2;display:flex!important;gap:4px;justify-content:flex-end;align-items:center}
+  /* Inputs fill their grid cell */
+  .cat-wrap{min-width:0!important;width:100%!important;display:block!important}
+  .items-table select.cat-input{min-width:0!important;width:100%!important}
+  /* Larger action buttons for touch */
+  .items-table td:nth-child(6) .audit-btn,.items-table td:nth-child(6) .expense-btn{padding:8px 12px;font-size:14px}
+  /* Audit panel as overlay so it doesn't push layout */
+  .items-table tr{position:relative}
+  .audit-panel{position:absolute;left:0;right:0;top:calc(100% + 2px);z-index:20;white-space:pre-wrap;word-break:break-word;max-height:200px;overflow-y:auto}
+  /* ── Starling transaction cards (overrides generic items-table nth-child rules) ── */
+  .items-table.starling-txn-table tr{grid-template-columns:1fr auto;grid-template-rows:auto auto auto auto auto;align-items:center;position:static}
+  .items-table.starling-txn-table td:nth-child(1){grid-column:1;grid-row:2;font-size:11px;color:var(--text3);text-align:left;display:block}
+  .items-table.starling-txn-table td:nth-child(2){grid-column:1;grid-row:1;font-weight:600;font-size:14px;display:block}
+  .items-table.starling-txn-table td:nth-child(3){display:none}
+  .items-table.starling-txn-table td:nth-child(4){grid-column:2;grid-row:1;font-weight:600;font-size:15px;text-align:right;display:block}
+  .items-table.starling-txn-table td:nth-child(5){display:block;grid-column:1;grid-row:3;font-size:12px;color:var(--text2);text-align:left}
+  .items-table.starling-txn-table td:nth-child(5)::before{content:"Receipt: ";color:var(--text3)}
+  .items-table.starling-txn-table td:nth-child(6){display:block;grid-column:2;grid-row:3;font-size:12px;text-align:right}
+  .items-table.starling-txn-table td:nth-child(6)::before{content:"Items: ";color:var(--text3)}
+  .items-table.starling-txn-table td:nth-child(7){display:block;grid-column:1;grid-row:4;font-size:12px;text-align:left}
+  .items-table.starling-txn-table td:nth-child(7)::before{content:"Diff: ";color:var(--text3)}
+  .items-table.starling-txn-table td:nth-child(8){grid-column:2;grid-row:2;text-align:right;display:block}
+  .items-table.starling-txn-table td:nth-child(9){grid-column:1/-1;grid-row:5;display:flex!important;gap:6px;justify-content:flex-end;white-space:normal}
+  .items-table.starling-txn-table td:nth-child(9) .btn{padding:7px 16px;font-size:12px}
+  /* Starling header: stack month nav and buttons on mobile */
+  .starling-header{flex-direction:column;align-items:stretch;gap:10px}
+  .starling-header-top{display:flex;justify-content:space-between;align-items:center}
+  .starling-header-actions{display:flex;gap:8px}
+  .starling-header-actions .btn{flex:1;justify-content:center}
 }
+.exp-table{width:100%;border-collapse:separate;border-spacing:0;background:var(--surface);border:1px solid var(--border);border-radius:var(--radius);overflow:hidden;box-shadow:var(--shadow)}
+.exp-table th{padding:9px 12px;font-size:11px;font-weight:600;color:var(--text3);text-transform:uppercase;letter-spacing:0.4px;background:var(--surface2);border-bottom:1px solid var(--border);text-align:left}
+.exp-table td{padding:9px 12px;border-bottom:1px solid var(--border);font-size:13px;vertical-align:middle}
+.exp-table tr:last-child td{border-bottom:none}
+.exp-table tr:hover td{background:var(--bg)}
 .map-table{width:100%;border-collapse:separate;border-spacing:0;background:var(--surface);border:1px solid var(--border);border-radius:var(--radius);overflow:hidden;box-shadow:var(--shadow)}
 .map-table th{padding:9px 12px;font-size:11px;font-weight:600;color:var(--text3);text-transform:uppercase;letter-spacing:0.4px;background:var(--surface2);border-bottom:1px solid var(--border);text-align:left}
 .map-table td{padding:9px 12px;border-bottom:1px solid var(--border);font-size:13px;vertical-align:middle}
@@ -159,6 +229,12 @@ body{font-family:'DM Sans',sans-serif;background:var(--bg);color:var(--text);min
 .it-input{padding:4px 8px;border:1px solid var(--border);border-radius:var(--radius-sm);font-family:inherit;font-size:12px;background:var(--surface);color:var(--text);outline:none;width:160px}
 .it-input:focus{border-color:var(--accent)}
 .cat-type-hint{font-size:10px;color:var(--text3);font-style:italic;margin-left:4px}
+.date-group{margin-bottom:20px}
+.date-group-header{display:flex;align-items:center;gap:10px;margin-bottom:8px}
+.date-group-label{font-size:12px;font-weight:600;color:var(--text3);text-transform:uppercase;letter-spacing:0.5px;white-space:nowrap}
+.date-group-line{flex:1;height:1px;background:var(--border)}
+.date-group-count{font-size:11px;color:var(--text3);white-space:nowrap}
+.date-group .receipt-date{display:none}
 </style>
 </head>
 <body>
@@ -176,10 +252,13 @@ body{font-family:'DM Sans',sans-serif;background:var(--bg);color:var(--text);min
     <nav class="sidebar-nav">
       <button class="nav-item active" id="nav-dashboard" onclick="showView('dashboard')"><span>◎</span> Dashboard</button>
       <button class="nav-item" id="nav-receipts" onclick="showView('receipts')"><span>≡</span> Receipts</button>
+      <button class="nav-item" id="nav-expenses" onclick="showView('expenses')"><span>💳</span> Expenses</button>
       <button class="nav-item" id="nav-mappings" onclick="showView('mappings')"><span>⊞</span> Mappings</button>
+      <button class="nav-item" id="nav-starling" onclick="showView('starling')"><span>✦</span> Starling</button>
     </nav>
     <div class="sidebar-footer">
-      <button class="btn btn-primary" style="width:100%" onclick="openScanModal()">+ Scan Receipt</button>
+      <button class="btn btn-primary" style="width:100%;margin-bottom:8px" onclick="openScanModal()">+ Scan Receipt</button>
+      <button class="nav-item" style="width:100%;color:var(--text3);font-size:12.5px" onclick="signOut()">⎋ Sign out</button>
     </div>
   </aside>
 
@@ -192,17 +271,14 @@ body{font-family:'DM Sans',sans-serif;background:var(--bg);color:var(--text);min
     <div class="content">
 
       <div class="view active" id="view-dashboard">
+        <button class="btn btn-primary" style="width:100%;padding:18px;font-size:16px;justify-content:center;margin-bottom:20px" onclick="openScanAndCamera()">📸 Scan Receipt</button>
         <div class="stats-grid">
           <div class="stat-card"><div class="stat-label">Total Receipts</div><div class="stat-value" id="s-total">—</div><div class="stat-sub">all time</div></div>
           <div class="stat-card"><div class="stat-label">Need Review</div><div class="stat-value" id="s-review" style="color:var(--warning)">—</div><div class="stat-sub">awaiting action</div></div>
           <div class="stat-card"><div class="stat-label">Exported</div><div class="stat-value" id="s-exported" style="color:var(--accent)">—</div><div class="stat-sub">in master.xlsx</div></div>
           <div class="stat-card"><div class="stat-label">Total Spend</div><div class="stat-value" id="s-spend">—</div><div class="stat-sub">across all receipts</div></div>
         </div>
-        <div class="sec-header">
-          <div class="sec-title">Recent Receipts</div>
-          <button class="btn btn-secondary btn-sm" onclick="showView('receipts')">View all →</button>
-        </div>
-        <div id="dash-list"></div>
+        <div id="dash-latest"></div>
       </div>
 
       <div class="view" id="view-receipts">
@@ -211,11 +287,26 @@ body{font-family:'DM Sans',sans-serif;background:var(--bg);color:var(--text);min
           <button class="btn btn-primary btn-sm" onclick="openScanModal()">+ Scan Receipt</button>
         </div>
         <div id="receipts-list"></div>
+        <div id="receipts-load-more" style="text-align:center;padding:20px 0;display:none">
+          <button class="btn btn-secondary" onclick="_loadMoreReceipts()">Load earlier receipts</button>
+        </div>
+        <div id="receipts-load-spinner" style="text-align:center;padding:20px 0;display:none">
+          <div style="width:22px;height:22px;border:2px solid var(--border);border-top-color:var(--accent);border-radius:50%;animation:spin 0.8s linear infinite;margin:0 auto"></div>
+        </div>
+        <div id="receipts-end" style="text-align:center;padding:20px 0;font-size:12px;color:var(--text3);display:none">— You have reached the beginning —</div>
       </div>
 
       <div class="view" id="view-detail">
         <button class="back-btn" onclick="showView('receipts')">← Back to receipts</button>
         <div id="detail-content"></div>
+      </div>
+
+      <div class="view" id="view-expenses">
+        <div class="sec-header" style="margin-bottom:16px">
+          <div class="sec-title">Expenses</div>
+          <div style="font-size:13px;color:var(--text3)">Items marked 💳 are excluded from Excel export</div>
+        </div>
+        <div id="expenses-content"></div>
       </div>
 
       <div class="view" id="view-mappings">
@@ -224,6 +315,28 @@ body{font-family:'DM Sans',sans-serif;background:var(--bg);color:var(--text);min
           <button class="btn btn-primary btn-sm" onclick="openNewItemTypeModal()">+ New Item Type</button>
         </div>
         <div id="mappings-content"></div>
+      </div>
+
+      <div class="view" id="view-starling">
+        <div class="sec-header starling-header" style="margin-bottom:16px">
+          <div class="starling-header-top">
+            <div style="display:flex;align-items:center;gap:12px">
+              <button class="btn btn-secondary btn-sm" onclick="_starlingPrevMonth()">‹</button>
+              <div id="starling-month-label" style="font-size:15px;font-weight:600;min-width:120px;text-align:center">—</div>
+              <button class="btn btn-secondary btn-sm" onclick="_starlingNextMonth()">›</button>
+            </div>
+          </div>
+          <div class="starling-header-actions">
+            <button class="btn btn-primary btn-sm" id="starling-sync-btn" onclick="syncStarling()">↻ Sync</button>
+            <button class="btn btn-secondary btn-sm" onclick="downloadStarlingExcel()">&#8595; Excel</button>
+          </div>
+        </div>
+        <div class="stats-grid" style="margin-bottom:16px">
+          <div class="stat-card"><div class="stat-label">Matched</div><div class="stat-value" id="sl-matched" style="color:var(--success)">—</div><div class="stat-sub">exact amount + date</div></div>
+          <div class="stat-card"><div class="stat-label">Partial</div><div class="stat-value" id="sl-partial" style="color:var(--warning)">—</div><div class="stat-sub">date match only</div></div>
+          <div class="stat-card"><div class="stat-label">Unmatched</div><div class="stat-value" id="sl-unmatched" style="color:var(--danger)">—</div><div class="stat-sub">no receipt found</div></div>
+        </div>
+        <div id="starling-content"></div>
       </div>
 
     </div>
@@ -236,18 +349,19 @@ body{font-family:'DM Sans',sans-serif;background:var(--bg);color:var(--text);min
     <div class="modal-sub">Upload a photo to automatically extract and categorise items.</div>
     <div class="form-group">
       <label class="form-label">Store</label>
-      <select class="form-select" id="scan-store">
+      <select class="form-select" id="scan-store" onchange="if(this.value==='__new__')openNewStoreModal()">
         <option value="unknown">Auto-detect from receipt</option>
+        <option value="__new__">＋ Create new store…</option>
       </select>
     </div>
     <div class="form-group">
       <label class="form-label">Receipt Photo</label>
-      <div class="drop-zone" id="drop-zone" onclick="document.getElementById('file-input').click()">
-        <div class="drop-icon">📷</div>
-        <div class="drop-text">Click to upload or drag &amp; drop</div>
-        <div class="drop-sub">JPG or PNG</div>
+      <button class="btn btn-primary" style="width:100%;padding:16px;font-size:15px;margin-bottom:10px;justify-content:center" onclick="document.getElementById('camera-input').click()">📸 Take Photo</button>
+      <div class="drop-zone" id="drop-zone" onclick="document.getElementById('file-input').click()" style="padding:14px 12px">
+        <div class="drop-text" style="font-size:12px;color:var(--text3)">or upload from gallery / drag &amp; drop</div>
       </div>
       <input type="file" id="file-input" accept="image/*" style="display:none" onchange="onFileSelect(event)">
+      <input type="file" id="camera-input" accept="image/*" capture="environment" style="display:none" onchange="onFileSelect(event)">
     </div>
     <div class="modal-actions">
       <button class="btn btn-secondary" onclick="closeScanModal()">Cancel</button>
@@ -281,6 +395,43 @@ body{font-family:'DM Sans',sans-serif;background:var(--bg);color:var(--text);min
   </div>
 </div>
 
+<div class="modal-overlay" id="inline-create-item-type">
+  <div class="modal" style="max-width:360px">
+    <div class="modal-title">Create Item Type</div>
+    <div class="form-group">
+      <label class="form-label">Item Type Name</label>
+      <input type="text" class="form-select" id="icit-name" placeholder="e.g. smoked salmon" style="font-size:13px">
+    </div>
+    <div class="form-group">
+      <label class="form-label">Category</label>
+      <select class="form-select" id="icit-cat"></select>
+    </div>
+    <div class="modal-actions">
+      <button class="btn btn-secondary" onclick="document.getElementById('inline-create-item-type').classList.remove('open')">Cancel</button>
+      <button class="btn btn-primary" onclick="submitInlineCreateItemType()">Create &amp; Apply</button>
+    </div>
+  </div>
+</div>
+
+<div class="modal-overlay" id="new-store-modal">
+  <div class="modal" style="max-width:400px">
+    <div class="modal-title">Create New Store</div>
+    <div class="modal-sub">Add a new retailer so receipts can be detected and mapped automatically.</div>
+    <div class="form-group">
+      <label class="form-label">Store Name</label>
+      <input type="text" class="form-select" id="ns-name" placeholder="e.g. Tesco" style="font-size:13px">
+    </div>
+    <div class="form-group">
+      <label class="form-label">Store ID (optional)</label>
+      <input type="text" class="form-select" id="ns-id" placeholder="Auto-derived from name, e.g. tesco" style="font-size:13px">
+    </div>
+    <div class="modal-actions">
+      <button class="btn btn-secondary" onclick="closeNewStoreModal()">Cancel</button>
+      <button class="btn btn-primary" onclick="createNewStore()">Create</button>
+    </div>
+  </div>
+</div>
+
 <div class="proc-overlay" id="proc-overlay">
   <div class="proc-card">
     <div class="proc-spinner"></div>
@@ -293,13 +444,33 @@ body{font-family:'DM Sans',sans-serif;background:var(--bg);color:var(--text);min
 <div class="toast-wrap" id="toasts"></div>
 
 <script>
-const API = 'https://orx5k6bt7l.execute-api.eu-west-2.amazonaws.com/dev';
-const KEY = 'v64V6hztQR9g5iQSl0MS27ROwLpZMc7V3k78UpYI';
-const CATS = ['baby-products','bakery','beverages','bread-bakery','canned-goods','cleaning','confectionery','dairy','deli','drinks','eggs','fish-seafood','frozen','fruits','grains','health-beauty','herbs-spices','household','meat-poultry','nuts-seeds','oil-vinegar','other','pasta-rice','pet-food','produce','sauces-condiments','snacks','spices','spreads','vegetables'];
+// Config loaded from config.js (generated by deploy script)
+// window.APP_CONFIG = { apiUrl, cognitoUrl, clientId, redirectUri }
 
-let selectedFile     = null;
-let currentReceiptId = null;
-let currentImageUrl  = null;
+function esc(s) {
+  return String(s ?? '').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;').replace(/'/g,'&#39;');
+}
+
+let CATS = ['alcohol','baby','baking','bakery','cleaning','clothes','dairy-eggs','drinks','fish-seafood','frozen','fruits','health-beauty','homewares','meat','oils-fats','other','pasta-rice','ready-meals','salad-herbs','sauces-condiments','snacks','spices','tinned-jarred','vegetables'];
+let _categories = [];  // [{category_id, name}, ...]
+
+async function ensureCatsLoaded() {
+  if (_categories.length) return;
+  try {
+    const d = await apiFetch('/categories');
+    const cats = (d.categories || []).filter(c => c.category_id);
+    if (cats.length) {
+      _categories = cats.sort((a,b) => (a.name||a.category_id).localeCompare(b.name||b.category_id));
+      CATS = _categories.map(c => c.category_id);
+      _catsCache = _categories;
+    }
+  } catch(e) { /* keep fallback */ }
+}
+
+let selectedFile       = null;
+let currentReceiptId   = null;
+let currentImageUrl    = null;
+let currentReceiptStatus = null;
 let pendingCorrections = {};
 let _itemTypes = [];   // [{item_type_id, category_id, label}, ...]
 
@@ -311,10 +482,50 @@ async function ensureItemTypesLoaded() {
   } catch(e) { console.warn('Could not load item types:', e); }
 }
 
+async function _ensureToken() {
+  const token = localStorage.getItem('access_token');
+  if (!token) return false;
+  try {
+    const payload = JSON.parse(atob(token.split('.')[1].replace(/-/g,'+').replace(/_/g,'/')));
+    if (!payload.exp || payload.exp > Date.now()/1000 + 30) return true; // still valid
+  } catch(e) { return true; } // can't decode — pass through
+  // Token expired — attempt refresh
+  const refresh = localStorage.getItem('refresh_token');
+  if (!refresh) return false;
+  const cfg = window.APP_CONFIG;
+  try {
+    const resp = await fetch(`${cfg.cognitoUrl}/oauth2/token`, {
+      method: 'POST',
+      headers: {'Content-Type': 'application/x-www-form-urlencoded'},
+      body: new URLSearchParams({grant_type:'refresh_token', client_id:cfg.clientId, refresh_token:refresh})
+    });
+    const tokens = await resp.json();
+    if (tokens.access_token) {
+      localStorage.setItem('access_token', tokens.access_token);
+      if (tokens.id_token) localStorage.setItem('id_token', tokens.id_token);
+      return true;
+    }
+  } catch(e) {}
+  return false;
+}
+
 async function apiFetch(path, opts={}) {
-  const res = await fetch(`${API}${path}`, {
-    ...opts, headers:{'X-Api-Key':KEY,'Content-Type':'application/json',...(opts.headers||{})}
+  const cfg = window.APP_CONFIG;
+  const ok = await _ensureToken();
+  if (!ok) { toast('Session expired — please sign in again', 'warning'); initAuth(); return; }
+  // API Gateway Cognito User Pool Authorizer validates the `aud` claim,
+  // which is only present in id_token (not access_token).
+  const token = localStorage.getItem('id_token');
+  const res = await fetch(`${cfg.apiUrl}${path}`, {
+    ...opts, headers:{'Authorization':`Bearer ${token}`,'Content-Type':'application/json',...(opts.headers||{})}
   });
+  if (res.status === 401) {
+    let body = '';
+    try { body = await res.text(); } catch(e) {}
+    console.error('API 401 on', path, '— response:', body, '— token prefix:', token ? token.substring(0,40) : 'null');
+    toast('Auth error (401) — try signing out and back in', 'error');
+    return;
+  }
   if (!res.ok) throw new Error(`${res.status}`);
   return res.json();
 }
@@ -336,20 +547,236 @@ function showView(name) {
   // Close sidebar on mobile after navigation
   document.querySelector('.sidebar').classList.remove('open');
   document.getElementById('sidebar-backdrop').classList.remove('open');
-  document.getElementById('topbar-title').textContent = {dashboard:'Dashboard',receipts:'Receipts',detail:'Receipt Detail',mappings:'Item Mappings'}[name]||name;
+  document.getElementById('topbar-title').textContent = {dashboard:'Dashboard',receipts:'Receipts',detail:'Receipt Detail',expenses:'Expenses',mappings:'Item Mappings',starling:'Starling'}[name]||name;
   document.getElementById('topbar-actions').innerHTML = '';
   if (name==='dashboard') loadDashboard();
   if (name==='receipts') loadReceipts();
+  if (name==='expenses') loadExpenses();
   if (name==='mappings') loadMappings();
+  if (name==='starling') loadStarling();
 }
 
-async function loadMappings() {
-  document.getElementById('mappings-content').innerHTML = loadingHtml('Loading item types…');
-  await ensureItemTypesLoaded();
+// ── Starling ──────────────────────────────────────────────────────────────────
+let _starlingMonth = new Date().toISOString().slice(0,7); // YYYY-MM
+let _starlingTxns  = []; // current month's transactions (for modal filtering)
+
+function _starlingPrevMonth() {
+  const [y,m] = _starlingMonth.split('-').map(Number);
+  const d = new Date(y, m-2, 1);
+  _starlingMonth = `${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,'0')}`;
+  loadStarling();
+}
+function _starlingNextMonth() {
+  const [y,m] = _starlingMonth.split('-').map(Number);
+  const d = new Date(y, m, 1);
+  _starlingMonth = `${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,'0')}`;
+  loadStarling();
+}
+
+async function loadStarling() {
+  const label = document.getElementById('starling-month-label');
+  const content = document.getElementById('starling-content');
+  if (!label) return;
+  label.textContent = new Date(_starlingMonth+'-02').toLocaleString('default',{month:'long',year:'numeric'});
+  content.innerHTML = '<div style="padding:20px;color:var(--text3)">Loading…</div>';
   try {
-    const cats = await apiFetch('/categories').then(d=>d.categories||[]);
+    const data = await apiFetch(`/starling/transactions?month=${_starlingMonth}`);
+    _renderStarling(data);
+  } catch(e) {
+    content.innerHTML = `<div style="padding:20px;color:var(--danger)">Failed to load: ${e.message}</div>`;
+  }
+}
+
+async function syncStarling() {
+  const btn = document.getElementById('starling-sync-btn');
+  btn.disabled = true; btn.textContent = '↻ Syncing…';
+  try {
+    const data = await apiFetch(`/starling/sync?month=${_starlingMonth}`, {method:'POST'});
+    toast(`Synced ${data.total} transactions — ${data.matched} matched`, 'success');
+    await loadStarling();
+  } catch(e) {
+    toast(`Sync failed: ${e.message}`, 'error');
+  } finally {
+    btn.disabled = false; btn.textContent = '↻ Sync';
+  }
+}
+
+async function saveManualTotal(receiptId) {
+  const input = document.getElementById('manual-total-input');
+  const val = parseFloat(input?.value);
+  if (!val || val <= 0) { toast('Enter a valid amount', 'error'); return; }
+  try {
+    await apiFetch(`/receipts/${receiptId}/total`, {
+      method: 'PATCH',
+      headers: {'Content-Type':'application/json'},
+      body: JSON.stringify({total_amount: val.toFixed(2)})
+    });
+    toast('Total saved', 'success');
+    openReceipt(receiptId);
+  } catch(e) { toast('Failed to save: '+e.message, 'error'); }
+}
+
+let _linkModal = null;
+function _closeLinkModal() { if (_linkModal) { _linkModal.remove(); _linkModal = null; } }
+
+function _openLinkModal(txnId, month, txnDate) {
+  _closeLinkModal();
+  _linkModal = document.createElement('div');
+  _linkModal.id = 'link-modal-root';
+  _linkModal.innerHTML = `
+    <div style="position:fixed;inset:0;background:rgba(0,0,0,0.5);z-index:1000;display:flex;align-items:center;justify-content:center;padding:16px" onclick="if(event.target===this)_closeLinkModal()">
+      <div style="background:var(--surface);border-radius:12px;width:100%;max-width:480px;max-height:80vh;display:flex;flex-direction:column;overflow:hidden">
+        <div style="padding:16px 20px;border-bottom:1px solid var(--border);display:flex;justify-content:space-between;align-items:center;flex-shrink:0">
+          <div style="font-weight:600">Link receipt — ${txnDate}</div>
+          <button onclick="_closeLinkModal()" style="background:none;border:none;font-size:20px;cursor:pointer;color:var(--text2);line-height:1;padding:0 4px">✕</button>
+        </div>
+        <div id="link-modal-list" style="overflow-y:auto;flex:1;padding:8px 12px">
+          <div style="padding:20px;text-align:center;color:var(--text3)">Loading receipts…</div>
+        </div>
+      </div>
+    </div>`;
+  document.body.appendChild(_linkModal);
+  _loadLinkModalReceipts(txnId, month);
+}
+
+async function _loadLinkModalReceipts(txnId, month) {
+  const list = document.getElementById('link-modal-list');
+  if (!list) return;
+  try {
+    const data = await apiFetch(`/starling/receipts?month=${month}&exclude_txn=${txnId}`);
+    const receipts = data.receipts || [];
+    if (!list) return; // modal may have been closed
+    if (!receipts.length) {
+      list.innerHTML = '<div style="padding:20px;text-align:center;color:var(--text3)">No unmatched receipts for this month</div>';
+      return;
+    }
+    list.innerHTML = receipts.map(r => {
+      const total = r.total_amount && r.total_amount !== 'None'
+        ? `£${Number(String(r.total_amount).replace(/[^0-9.]/g,'')||0).toFixed(2)}`
+        : '<span style="color:#D4AC0D;font-size:11px">⚠ No total</span>';
+      return `<div onclick="_confirmLink('${txnId}','${month}','${r.receipt_id}')" style="padding:10px 8px;border-radius:8px;cursor:pointer;display:flex;gap:12px;align-items:center;border-bottom:1px solid var(--border)" onmouseover="this.style.background='var(--surface2)'" onmouseout="this.style.background=''">
+        <div style="flex:1">
+          <div style="font-weight:500;font-size:13px">${esc(r.retailer_name||'Unknown')}</div>
+          <div style="font-size:12px;color:var(--text2)">${r.receipt_date||'No date'}</div>
+        </div>
+        <div style="font-weight:600;font-size:14px">${total}</div>
+      </div>`;
+    }).join('');
+  } catch(e) {
+    if (list) list.innerHTML = `<div style="padding:20px;text-align:center;color:var(--danger)">Failed: ${e.message}</div>`;
+  }
+}
+
+async function _confirmLink(txnId, month, receiptId) {
+  _closeLinkModal();
+  try {
+    await apiFetch('/starling/match', {
+      method: 'POST',
+      headers: {'Content-Type':'application/json'},
+      body: JSON.stringify({transaction_id: txnId, month, receipt_id: receiptId})
+    });
+    toast('Receipt linked', 'success');
+    loadStarling();
+  } catch(e) { toast('Failed to link: '+e.message, 'error'); }
+}
+
+async function _unlinkReceipt(txnId, month) {
+  try {
+    await apiFetch('/starling/match', {
+      method: 'DELETE',
+      headers: {'Content-Type':'application/json'},
+      body: JSON.stringify({transaction_id: txnId, month})
+    });
+    toast('Receipt unlinked', 'success');
+    loadStarling();
+  } catch(e) { toast('Failed to unlink: '+e.message, 'error'); }
+}
+
+async function downloadStarlingExcel() {
+  try {
+    const data = await apiFetch('/starling/export');
+    window.open(data.url, '_blank');
+  } catch(e) {
+    toast(`Download failed: ${e.message}`, 'error');
+  }
+}
+
+function _renderStarling(data) {
+  document.getElementById('sl-matched').textContent   = data.matched   ?? '—';
+  document.getElementById('sl-partial').textContent   = data.partial   ?? '—';
+  document.getElementById('sl-unmatched').textContent = data.unmatched ?? '—';
+
+  const txns = data.transactions || [];
+  _starlingTxns = txns;
+  const content = document.getElementById('starling-content');
+  if (!txns.length) {
+    content.innerHTML = '<div style="padding:20px;color:var(--text3);text-align:center">No transactions — press Sync to fetch from Starling.</div>';
+    return;
+  }
+  const STATUS_COLOR = {matched:'var(--success)',partial:'var(--warning)',unmatched:'var(--danger)',manual:'#2980B9'};
+  const rows = txns.map(t => {
+    const hasReceipt = !!t.matched_receipt_id;
+    const receiptAmt = t.receipt_amount != null
+      ? '£'+Number(t.receipt_amount).toFixed(2)
+      : '—';
+    const viewBtn = hasReceipt
+      ? `<button class="btn btn-secondary btn-sm" style="padding:2px 8px;font-size:11px" onclick="openReceipt('${t.matched_receipt_id}')">View</button>`
+      : '';
+    const linkBtn = (t.match_status === 'unmatched' || t.match_status === 'partial')
+      ? `<button class="btn btn-secondary btn-sm" style="padding:2px 8px;font-size:11px" onclick="_openLinkModal('${t.transaction_id}','${t.month}','${t.date}')">Link</button>`
+      : '';
+    const unlinkBtn = (t.match_status === 'manual')
+      ? `<button class="btn btn-secondary btn-sm" style="padding:2px 8px;font-size:11px;color:var(--danger)" onclick="_unlinkReceipt('${t.transaction_id}','${t.month}')">Unlink</button>`
+      : '';
+    return `
+    <tr>
+      <td>${t.date||''}</td>
+      <td>${t.merchant_name||''}</td>
+      <td><span style="font-size:11px;background:var(--surface2);border-radius:4px;padding:2px 6px">${t.space_name||''}</span></td>
+      <td style="text-align:right;font-variant-numeric:tabular-nums">£${Number(t.amount||0).toFixed(2)}</td>
+      <td style="text-align:right;font-variant-numeric:tabular-nums">${receiptAmt}</td>
+      <td style="text-align:right;font-variant-numeric:tabular-nums;color:${t.items_total!=null&&t.receipt_amount!=null&&Math.abs(t.items_total-t.receipt_amount)>0.05?'var(--danger)':'var(--text3)'}">${t.items_total!=null?'£'+Number(t.items_total).toFixed(2):'—'}</td>
+      <td style="text-align:right;font-variant-numeric:tabular-nums;color:${t.diff_amount>0.01?'var(--danger)':t.diff_amount<-0.01?'var(--success)':'inherit'}">${t.diff_amount!=null?(t.diff_amount>0?'+':'')+Number(t.diff_amount).toFixed(2):'—'}</td>
+      <td><span style="font-size:11px;font-weight:600;color:${STATUS_COLOR[t.match_status]||'inherit'}">${t.match_status||''}</span></td>
+      <td style="white-space:nowrap;display:flex;gap:4px">${viewBtn}${linkBtn}${unlinkBtn}</td>
+    </tr>`;
+  }).join('');
+  content.innerHTML = `
+    <div style="overflow-x:auto">
+      <table class="items-table starling-txn-table" style="min-width:800px">
+        <thead><tr>
+          <th>Date</th><th>Shop</th><th>Space</th>
+          <th style="text-align:right">Starling £</th>
+          <th style="text-align:right">Receipt £</th>
+          <th style="text-align:right">Items £</th>
+          <th style="text-align:right">Diff</th>
+          <th>Status</th>
+          <th>Receipt</th>
+        </tr></thead>
+        <tbody>${rows}</tbody>
+      </table>
+    </div>`;
+}
+
+let _catsCache = null;
+async function loadMappings() {
+  if (_itemTypes.length && _catsCache) {
+    renderMappings(_itemTypes, _catsCache);
+  } else {
+    document.getElementById('mappings-content').innerHTML = _skeletonTable();
+  }
+  try {
+    await ensureItemTypesLoaded();
+    const cats = _catsCache || await apiFetch('/categories').then(d=>d.categories||[]);
+    _catsCache = cats;
     renderMappings(_itemTypes, cats);
   } catch(e) { document.getElementById('mappings-content').innerHTML = `<div style="color:var(--danger);padding:20px">Failed to load: ${e.message}</div>`; }
+}
+function _skeletonTable() {
+  const row = `<tr>${Array(4).fill(`<td><div class="skel-bar" style="height:13px;width:80px"></div></td>`).join('')}</tr>`;
+  return `<div style="overflow-x:auto;-webkit-overflow-scrolling:touch"><table class="map-table" style="pointer-events:none"><thead><tr>
+    <th>Item Type</th><th>Label</th><th>Category</th><th>Updated</th>
+  </tr></thead><tbody>${Array(8).fill(row).join('')}</tbody></table></div>`;
 }
 
 function renderMappings(itemTypes, categories) {
@@ -357,23 +784,25 @@ function renderMappings(itemTypes, categories) {
     document.getElementById('mappings-content').innerHTML = emptyState('No item types yet', 'Create item types to enable two-hop category matching');
     return;
   }
-  const catOpts = categories.map(c=>`<option value="${c.category_id||c.name}">${c.name||c.category_id}</option>`).join('');
+  const catOpts = categories.map(c=>`<option value="${esc(c.category_id||c.name)}">${esc(c.name||c.category_id)}</option>`).join('');
   const rows = itemTypes.map(it=>`
     <tr>
-      <td><span style="font-family:'DM Mono',monospace;font-size:12px">${it.item_type_id}</span></td>
-      <td>${it.label&&it.label!==it.item_type_id?it.label:'<span style="color:var(--text3)">—</span>'}</td>
+      <td><span style="font-family:'DM Mono',monospace;font-size:12px">${esc(it.item_type_id)}</span></td>
+      <td>${it.label&&it.label!==it.item_type_id?esc(it.label):'<span style="color:var(--text3)">—</span>'}</td>
       <td>
-        <select class="it-input" id="it-cat-${it.item_type_id}" onchange="updateItemType('${it.item_type_id}',this.value,'${it.label||it.item_type_id}')">
-          ${categories.map(c=>`<option value="${c.category_id||c.name}"${(c.category_id||c.name)===it.category_id?' selected':''}>${c.name||c.category_id}</option>`).join('')}
+        <select class="it-input" id="it-cat-${esc(it.item_type_id)}" data-type-id="${esc(it.item_type_id)}" data-label="${esc(it.label||it.item_type_id)}" onchange="updateItemType(this.dataset.typeId,this.value,this.dataset.label)">
+          ${categories.map(c=>`<option value="${esc(c.category_id||c.name)}"${(c.category_id||c.name)===it.category_id?' selected':''}>${esc(c.name||c.category_id)}</option>`).join('')}
         </select>
       </td>
-      <td><span style="font-size:11px;color:var(--text3)">${it.updated_at?it.updated_at.slice(0,10):'—'}</span></td>
+      <td><span style="font-size:11px;color:var(--text3)">${it.updated_at?esc(it.updated_at.slice(0,10)):'—'}</span></td>
     </tr>`).join('');
   document.getElementById('mappings-content').innerHTML = `
-    <table class="map-table">
-      <thead><tr><th>Item Type ID</th><th>Label</th><th>Category</th><th>Updated</th></tr></thead>
-      <tbody>${rows}</tbody>
-    </table>`;
+    <div style="overflow-x:auto;-webkit-overflow-scrolling:touch">
+      <table class="map-table">
+        <thead><tr><th>Item Type ID</th><th>Label</th><th>Category</th><th>Updated</th></tr></thead>
+        <tbody>${rows}</tbody>
+      </table>
+    </div>`;
 }
 
 async function updateItemType(itemTypeId, categoryId, label) {
@@ -416,46 +845,177 @@ async function createItemType() {
   } catch(e) { toast('Create failed: '+e.message,'error'); }
 }
 
+function _skeletonList(n) {
+  const row = `<div class="receipt-row" style="pointer-events:none;gap:12px">
+    <div class="skel-bar" style="width:110px;height:14px"></div>
+    <div class="receipt-spacer"></div>
+    <div class="skel-bar" style="width:50px;height:14px"></div>
+    <div class="skel-bar" style="width:72px;height:20px;border-radius:20px"></div>
+  </div>`;
+  return `<div class="receipt-list">${Array(n).fill(row).join('')}</div>`;
+}
+
+let _summaryCache    = null;
+let _receiptsCursor  = null;
+let _receiptsAllDone = false;
+
+function _invalidateListCaches() {
+  _summaryCache   = null;
+  _receiptsCursor = null;
+  _receiptsAllDone = false;
+}
+
 async function loadDashboard() {
+  // Show cached values immediately (no blank flash on revisit)
+  if (_summaryCache) {
+    document.getElementById('s-total').textContent    = _summaryCache.total;
+    document.getElementById('s-review').textContent   = _summaryCache.needs_review;
+    document.getElementById('s-exported').textContent = _summaryCache.exported;
+    document.getElementById('s-spend').textContent    = _summaryCache.total_spend;
+    _renderLatest(_summaryCache.latest);
+  }
   try {
-    const d = await apiFetch('/receipts');
-    const rs = d.receipts||[];
-    document.getElementById('s-total').textContent    = rs.length;
-    document.getElementById('s-review').textContent   = rs.filter(r=>r.status==='needs_review').length;
-    document.getElementById('s-exported').textContent = rs.filter(r=>r.status==='completed').length;
-    let spend=0;
-    rs.forEach(r=>{ const n=parseFloat(String(r.total_amount||'').replace(/[^\d.]/g,'')); if(!isNaN(n)) spend+=n; });
-    document.getElementById('s-spend').textContent = spend>0?`£${spend.toFixed(2)}`:'—';
-    document.getElementById('dash-list').innerHTML = rs.length ? renderList(rs.slice(0,6)) : emptyState('No receipts yet','Scan your first receipt to get started');
+    const d = await apiFetch('/receipts/summary');
+    _summaryCache = d;
+    document.getElementById('s-total').textContent    = d.total;
+    document.getElementById('s-review').textContent   = d.needs_review;
+    document.getElementById('s-exported').textContent = d.exported;
+    document.getElementById('s-spend').textContent    = d.total_spend;
+    _renderLatest(d.latest);
   } catch(e) { toast('Failed to load dashboard','error'); }
 }
 
-async function loadReceipts() {
-  document.getElementById('receipts-list').innerHTML = loadingHtml('Loading receipts…');
-  try {
-    const d = await apiFetch('/receipts');
-    const rs = d.receipts||[];
-    document.getElementById('receipts-list').innerHTML = rs.length ? renderList(rs) : emptyState('No receipts yet','Scan your first receipt to get started');
-  } catch(e) { toast('Failed to load receipts','error'); }
-}
-
-function renderList(rs) {
-  const badge = r => ({
+function _renderLatest(receipt) {
+  const el = document.getElementById('dash-latest');
+  if (!receipt) { el.innerHTML = ''; return; }
+  const store  = esc(receipt.retailer_name || receipt.retailer_id || 'Unknown');
+  const date   = fmtDate(receipt.receipt_date);
+  const amount = receipt.total_amount || '—';
+  const statusBadge = ({
     completed:   `<span class="badge badge-green">● Complete</span>`,
     needs_review:`<span class="badge badge-yellow">● Needs review</span>`,
     processing:  `<span class="badge badge-blue">● Processing</span>`,
     pending:     `<span class="badge badge-grey">Pending</span>`,
     failed:      `<span class="badge badge-red">Failed</span>`,
-  }[r.status]||`<span class="badge badge-grey">${r.status}</span>`);
+  }[receipt.status] || `<span class="badge badge-grey">${esc(receipt.status||'')}</span>`);
+  const exportedBadge = receipt.exported_to_excel
+    ? `<span class="badge badge-exported" style="background:#E8F8F5;color:#1E8449;border:1px solid #27AE60">📊 In Excel</span>`
+    : '';
+  el.innerHTML = `
+    <div class="sec-header" style="margin-bottom:10px">
+      <div class="sec-title">Latest Receipt</div>
+      <button class="btn btn-secondary btn-sm" onclick="showView('receipts')">All receipts →</button>
+    </div>
+    <div class="receipt-row" onclick="openReceipt('${esc(receipt.receipt_id)}')">
+      <div class="receipt-store">${store}</div>
+      <div class="receipt-date">${date}</div>
+      <div class="receipt-items">${receipt.item_count ? Math.round(receipt.item_count)+' items' : ''}</div>
+      <div class="receipt-total">${amount}</div>
+      <div class="receipt-spacer"></div>
+      <span style="display:inline-flex;align-items:center;gap:4px;flex-shrink:0">${statusBadge}${exportedBadge}</span>
+      <span style="color:var(--text3);font-size:16px;margin-left:4px">›</span>
+    </div>`;
+}
+
+async function loadReceipts() {
+  // Always start fresh on tab switch — first page is fast (3 days only)
+  _receiptsCursor  = null;
+  _receiptsAllDone = false;
+  document.getElementById('receipts-list').innerHTML = _skeletonList(5);
+  _setLoadMoreState('hidden');
+  try {
+    const d  = await apiFetch('/receipts');
+    const rs = d.receipts || [];
+    _receiptsCursor = d.next_cursor;
+    document.getElementById('receipts-list').innerHTML =
+      rs.length ? _renderDateGroups(rs) : emptyState('No receipts yet', 'Scan your first receipt to get started');
+    _setLoadMoreState(d.has_more ? 'button' : 'end');
+  } catch(e) { toast('Failed to load receipts','error'); }
+}
+
+async function _loadMoreReceipts() {
+  if (_receiptsAllDone || !_receiptsCursor) return;
+  _setLoadMoreState('loading');
+  try {
+    const d  = await apiFetch(`/receipts?before=${_receiptsCursor}`);
+    const rs = d.receipts || [];
+    _receiptsCursor = d.next_cursor;
+    if (rs.length) {
+      document.getElementById('receipts-list').insertAdjacentHTML('beforeend', _renderDateGroups(rs));
+    }
+    if (!d.has_more) { _receiptsAllDone = true; _setLoadMoreState('end'); }
+    else             { _setLoadMoreState('button'); }
+  } catch(e) { toast('Failed to load more receipts','error'); _setLoadMoreState('button'); }
+}
+
+function _groupByDate(receipts) {
+  const groups = {};
+  receipts.forEach(r => {
+    const d = (r.receipt_date || '').split('T')[0];
+    if (!groups[d]) groups[d] = [];
+    groups[d].push(r);
+  });
+  return Object.entries(groups).sort((a, b) => b[0].localeCompare(a[0]));
+}
+
+function _renderDateGroups(receipts) {
+  return _groupByDate(receipts).map(([date, rs]) => `
+    <div class="date-group">
+      <div class="date-group-header">
+        <span class="date-group-label">${_fmtDateGroup(date)}</span>
+        <div class="date-group-line"></div>
+        <span class="date-group-count">${rs.length} receipt${rs.length > 1 ? 's' : ''}</span>
+      </div>
+      ${renderList(rs)}
+    </div>`).join('');
+}
+
+function _fmtDateGroup(dateStr) {
+  try {
+    const d = new Date(dateStr + 'T12:00:00');
+    const today = new Date(); today.setHours(0,0,0,0);
+    const yest  = new Date(today); yest.setDate(yest.getDate() - 1);
+    const dDay  = new Date(dateStr + 'T00:00:00');
+    const fmt   = d.toLocaleDateString('en-GB', {weekday:'short', day:'numeric', month:'short', year:'numeric'});
+    if (dDay >= today) return 'Today — ' + fmt;
+    if (dDay >= yest)  return 'Yesterday — ' + fmt;
+    return fmt;
+  } catch { return dateStr || '—'; }
+}
+
+function _setLoadMoreState(state) {
+  document.getElementById('receipts-load-more').style.display    = state === 'button'  ? 'block' : 'none';
+  document.getElementById('receipts-load-spinner').style.display  = state === 'loading' ? 'block' : 'none';
+  document.getElementById('receipts-end').style.display           = state === 'end'     ? 'block' : 'none';
+}
+
+function renderList(rs) {
+  const badge = r => {
+    const status = ({
+      completed:   `<span class="badge badge-green">● Complete</span>`,
+      needs_review:`<span class="badge badge-yellow">● Needs review</span>`,
+      processing:  `<span class="badge badge-blue">● Processing</span>`,
+      pending:     `<span class="badge badge-grey">Pending</span>`,
+      failed:      `<span class="badge badge-red">Failed</span>`,
+    }[r.status]||`<span class="badge badge-grey">${esc(r.status)}</span>`);
+    const exported = r.exported_to_excel
+      ? `<span class="badge badge-exported" style="background:#E8F8F5;color:#1E8449;border:1px solid #27AE60">📊 In Excel</span>`
+      : '';
+    const noTotal = (!r.total_amount || r.total_amount === 'None')
+      ? `<span class="badge" style="background:#FEF9E7;color:#D4AC0D;border:1px solid #F7DC6F">⚠ No total</span>`
+      : '';
+    return `<span style="display:inline-flex;align-items:center;gap:4px;flex-shrink:0">${status}${exported}${noTotal}</span>`;
+  };
 
   return `<div class="receipt-list">${rs.map(r=>`
     <div class="receipt-row" onclick="openReceipt('${r.receipt_id}')">
-      <div class="receipt-store">${r.retailer_name||r.retailer_id||'Unknown'}</div>
+      <div class="receipt-store">${esc(r.retailer_name||r.retailer_id||'Unknown')}</div>
       <div class="receipt-date">${fmtDate(r.receipt_date)}</div>
       <div class="receipt-items">${r.item_count?Math.round(r.item_count)+' items':''}</div>
       <div class="receipt-total">${r.total_amount||'—'}</div>
       <div class="receipt-spacer"></div>
       ${badge(r)}
+      <button class="audit-btn" style="color:var(--danger);margin-left:8px" onclick="deleteReceipt('${r.receipt_id}',event)" title="Delete receipt">✕</button>
       <span style="color:var(--text3);font-size:16px;margin-left:4px">›</span>
     </div>`).join('')}</div>`;
 }
@@ -466,7 +1026,7 @@ async function openReceipt(id) {
   pendingCorrections = {};
   showView('detail');
   document.getElementById('detail-content').innerHTML = loadingHtml('Loading receipt…');
-  await ensureItemTypesLoaded();
+  await Promise.all([ensureItemTypesLoaded(), ensureCatsLoaded()]);
   try {
     const d = await apiFetch(`/receipts/${id}`);
     currentImageUrl = d.image_url || null;
@@ -474,26 +1034,54 @@ async function openReceipt(id) {
   } catch(e) { toast('Failed to load receipt','error'); }
 }
 
+function _topbarHtml() {
+  const hasPending = Object.keys(pendingCorrections).length > 0;
+  return [
+    hasPending ? `<button class="btn btn-primary btn-sm" onclick="submitCorrections()">Save corrections</button>` : '',
+    (currentReceiptStatus !== 'processing' && currentReceiptStatus !== 'reprocessing') ? `<button class="btn btn-secondary btn-sm" onclick="reprocessReceipt('${currentReceiptId}')">↺ Reprocess</button>` : ''
+  ].filter(Boolean).join(' ');
+}
+
 function renderDetail(receipt, items) {
+  currentReceiptStatus = receipt.status;
   const needsRev   = items.filter(i=>i.needs_review&&!i.confirmed).length;
   const reviewed   = items.filter(i=>!i.needs_review||i.confirmed).length;
   const pct        = items.length?Math.round(reviewed/items.length*100):0;
   const allExported= items.length>0&&items.every(i=>i.exported_to_excel);
   const isFailed   = receipt.status === 'failed';
 
-  const actionBtns = [
-    needsRev>0 ? `<button class="btn btn-primary btn-sm" onclick="submitCorrections()">Save corrections</button>` : '',
-    `<button class="btn btn-secondary btn-sm" onclick="reprocessReceipt('${receipt.receipt_id}')">↺ Reprocess</button>`
-  ].filter(Boolean).join(' ');
-  document.getElementById('topbar-actions').innerHTML = actionBtns;
+  document.getElementById('topbar-actions').innerHTML = _topbarHtml();
+
+  const missingTotal = !receipt.total_amount || receipt.total_amount === 'None';
+  const missingTotalBanner = missingTotal
+    ? `<div class="review-banner" style="background:#FEF9E7;border-color:#F7DC6F;color:#7D6608;margin-bottom:8px">
+        ⚠ Total amount missing — enter it manually or rescan the receipt.
+        <div style="display:flex;gap:8px;margin-top:8px;align-items:center">
+          <input id="manual-total-input" type="number" step="0.01" min="0" placeholder="0.00"
+            style="width:120px;padding:6px 8px;border:1px solid #F7DC6F;border-radius:6px;font-size:14px;background:#fff"
+            onkeydown="if(event.key==='Enter')saveManualTotal('${esc(receipt.receipt_id)}')">
+          <button class="btn btn-primary btn-sm" onclick="saveManualTotal('${esc(receipt.receipt_id)}')">Save total</button>
+        </div>
+      </div>`
+    : '';
 
   const banner = isFailed
-    ?`<div class="review-banner" style="background:var(--danger-light);border-color:#F5B7B1;color:var(--danger)">✕ Processing failed: ${receipt.error_message||'Unknown error'}. Click Reprocess to try again.</div>`
+    ?`<div class="review-banner" style="background:var(--danger-light);border-color:#F5B7B1;color:var(--danger)">✕ Processing failed: ${esc(receipt.error_message||'Unknown error')}. Click Reprocess to try again.</div>`
     : allExported
     ?`<div class="export-banner">✓ All items exported to master.xlsx</div>`
     : needsRev>0
     ?`<div class="review-banner">⚠ ${needsRev} item${needsRev>1?'s':''} need your review before export</div>`
-    :`<div class="export-banner">✓ All items reviewed — export will trigger automatically</div>`;
+    :`<div class="review-banner" style="background:var(--success-light);border-color:var(--success);color:var(--success)">✓ All items reviewed — click Confirm &amp; Export below</div>`;
+
+  const actionBtn = isFailed ? ''
+    : allExported
+    ? `<div style="margin-top:16px;padding-bottom:8px;display:flex;align-items:center;flex-wrap:wrap;gap:12px;justify-content:center">
+        <span style="color:var(--success);font-size:14px;font-weight:500">✓ Already in master.xlsx</span>
+        <button class="btn btn-secondary btn-sm" onclick="confirmExport()">↺ Re-export</button>
+      </div>`
+    : `<div style="margin-top:16px;padding-bottom:8px">
+        <button class="btn btn-primary" style="width:100%;padding:14px;font-size:15px" onclick="confirmExport()">Confirm &amp; Export</button>
+      </div>`;
 
   const tableHtml = `
     <div class="table-scroll"><table class="items-table">
@@ -501,7 +1089,8 @@ function renderDetail(receipt, items) {
         <th>Item</th><th>Item Type</th><th>Category</th><th>Price</th><th>Confidence</th><th>Audit</th>
       </tr></thead>
       <tbody>${items.map(item=>renderRow(item)).join('')}</tbody>
-    </table></div>`;
+    </table></div>
+    ${actionBtn}`;
 
   const imgPanel = currentImageUrl
     ? `<div class="receipt-img-panel">
@@ -511,11 +1100,14 @@ function renderDetail(receipt, items) {
     : '';
 
   document.getElementById('detail-content').innerHTML = `
+    ${missingTotalBanner}
     <div style="margin-bottom:20px">
-      <div class="detail-store">${receipt.retailer_name||receipt.retailer_id||'Unknown'}</div>
+      <div style="display:flex;align-items:baseline;justify-content:space-between;gap:12px;flex-wrap:wrap">
+        <div class="detail-store">${esc(receipt.retailer_name||receipt.retailer_id||'Unknown')}</div>
+        <div style="font-size:24px;font-weight:700;font-family:'DM Mono',monospace;color:var(--text1);white-space:nowrap">${(()=>{const t=receipt.total_amount;if(!t||t==='None')return'—';const n=parseFloat(String(t).replace(/[^0-9.]/g,''));return isNaN(n)?t:'£'+n.toFixed(2);})()}</div>
+      </div>
       <div class="detail-meta">
         <span>📅 ${fmtDate(receipt.receipt_date)}</span>
-        <span>💰 ${receipt.total_amount||'—'}</span>
         <span>🛒 ${items.length} items</span>
       </div>
       <div class="progress-bar"><div class="progress-fill" style="width:${pct}%"></div></div>
@@ -549,7 +1141,7 @@ function renderRow(item) {
   const conf      = Math.round((item.match_confidence||0)*100);
   const needsRev  = item.needs_review&&!item.confirmed;
   const confColor = conf>=92?'var(--success)':conf>=75?'var(--warning)':conf>=50?'#E67E22':'var(--danger)';
-  const rowStyle  = needsRev?'background:#FFFDF5':item.confirmed?'background:#F9FFFE':'';
+  const rowStyle  = needsRev?'background:var(--danger-light)':item.confirmed?'background:var(--success-light)':'';
   const badge     = needsRev
     ?`<span class="badge badge-yellow">Review</span>`
     :item.confirmed
@@ -557,14 +1149,14 @@ function renderRow(item) {
     :`<span class="badge badge-green">✓ Auto</span>`;
 
   const audit = [
-    item.item_type_id     ?`item_type:  "${item.item_type_id}"`:null,
-    item.matched_keyword  ?`matched:    "${item.matched_keyword}"`:null,
-    item.normalized_name  ?`normalised: "${item.normalized_name}"`:null,
-    item.match_source     ?`source:     ${item.match_source}`:null,
-    item.review_reason    ?`reason:     ${item.review_reason}`:null,
-    item.price_raw        ?`raw price:  ${item.price_raw}`:null,
-    item.original_category&&item.original_category!==item.category?`original:   ${item.original_category}`:null,
-    item.exported_to_excel?`exported:   ${item.exported_at||'yes'}`:`exported:   not yet`,
+    item.item_type_id     ?`item_type:  "${esc(item.item_type_id)}"`:null,
+    item.matched_keyword  ?`matched:    "${esc(item.matched_keyword)}"`:null,
+    item.normalized_name  ?`normalised: "${esc(item.normalized_name)}"`:null,
+    item.match_source     ?`source:     ${esc(item.match_source)}`:null,
+    item.review_reason    ?`reason:     ${esc(item.review_reason)}`:null,
+    item.price_raw        ?`raw price:  ${esc(item.price_raw)}`:null,
+    item.original_category&&item.original_category!==item.category?`original:   ${esc(item.original_category)}`:null,
+    item.exported_to_excel?`exported:   ${esc(item.exported_at||'yes')}`:`exported:   not yet`,
   ].filter(Boolean).join('\n');
 
   const pendVal        = pendingCorrections[item.item_seq];
@@ -573,28 +1165,31 @@ function renderRow(item) {
   const inputVal       = pendVal ? (pendVal.label || pendVal.item_type_id || pendVal) : displayType;
   const resolvedCat    = pendVal ? (pendVal.category || displayCat) : displayCat;
 
-  const typeCell = needsRev ? `
+  const typeCell = `
     <div class="cat-wrap" style="min-width:180px">
       <input type="text" class="cat-input" id="ci-${item.item_seq}"
-        value="${inputVal}"
+        value="${esc(inputVal)}"
         oninput="filterItemTypes('${item.item_seq}',this.value)"
-        onfocus="openDrop('${item.item_seq}')"
+        onfocus="this.select();openDrop('${item.item_seq}')"
         onblur="setTimeout(()=>closeDrop('${item.item_seq}'),160)"
-        autocomplete="off">
-      <div class="cat-dropdown" id="cd-${item.item_seq}">
+        onkeydown="if(event.key==='Enter'){event.preventDefault();selectTopMatch('${item.item_seq}')}"
+        autocomplete="off" inputmode="text">
+      <div class="cat-dropdown" id="cd-${item.item_seq}" data-seq="${esc(item.item_seq)}">
         ${(_itemTypes.length ? _itemTypes : CATS.map(c=>({item_type_id:c,category_id:c}))).slice(0,80)
-          .map(it=>`<div class="cat-option" onmousedown="pickItemType('${item.item_seq}','${it.item_type_id}','${it.category_id||it.item_type_id}','${it.label||it.item_type_id}')">${it.item_type_id}</div>`).join('')}
+          .map(it=>`<div class="cat-option" data-type="${esc(it.item_type_id)}" data-cat="${esc(it.category_id||it.item_type_id)}" data-label="${esc(it.label||it.item_type_id)}">${esc(it.item_type_id)}</div>`).join('')}
+        <div class="cat-option cat-option-create">＋ Create new item type</div>
       </div>
-    </div>`
-    : `<span class="tag">${displayType}</span>`;
+    </div>`;
 
-  const catCell = `<span class="tag" id="cat-resolve-${item.item_seq}" style="color:var(--text3)">${resolvedCat}</span>`;
+  const catSrc  = _categories.length ? _categories : CATS.map(c=>({category_id:c, name:c}));
+  const catOpts = catSrc.map(c=>`<option value="${esc(c.category_id)}"${c.category_id===resolvedCat?' selected':''}>${esc(c.name||c.category_id)}</option>`).join('');
+  const catCell = `<select class="cat-input" id="cat-resolve-${item.item_seq}" style="min-width:140px;font-size:12px" onchange="pickCategory('${item.item_seq}',this.value)">${catOpts}</select>`;
 
   return `<tr style="${rowStyle}" id="row-${item.item_seq}">
-    <td><div class="item-name">${item.raw_name}</div><div class="item-norm">${item.normalized_name||''}</div></td>
+    <td><div class="item-name">${esc(item.raw_name)}</div><div class="item-norm">${esc(item.normalized_name||'')}</div></td>
     <td>${typeCell}</td>
     <td>${catCell}</td>
-    <td><span style="font-family:'DM Mono',monospace">${item.price||'—'}</span>${item.quantity&&item.quantity!=='1'?`<span style="font-size:11px;color:var(--text3);margin-left:4px">×${item.quantity}</span>`:''}</td>
+    <td><span style="font-family:'DM Mono',monospace;cursor:pointer" title="Click to edit price" onclick="editPrice('${item.item_seq}',this)" id="price-display-${item.item_seq}">${item.price?'£'+esc(String(item.price).replace(/^[£\u00a3]/,'')):'—'}</span>${item.quantity&&item.quantity!=='1'?`<span style="font-size:11px;color:var(--text3);margin-left:4px">×${esc(item.quantity)}</span>`:''}</td>
     <td>
       <div class="conf-bar">
         <div class="conf-track"><div class="conf-fill" style="width:${conf}%;background:${confColor}"></div></div>
@@ -604,6 +1199,10 @@ function renderRow(item) {
     </td>
     <td>
       <button class="audit-btn" onclick="toggleAudit('${item.item_seq}')">info</button>
+      ${needsRev?`<button class="audit-btn confirm-btn" style="color:var(--success);margin-left:4px" onclick="confirmItem('${item.item_seq}')" title="Confirm AI match is correct">✓</button>`:''}
+      <button class="expense-btn${item.is_expense?' active':''}" id="exp-btn-${item.item_seq}" style="margin-left:4px" onclick="toggleExpense('${item.item_seq}',${!!item.is_expense})" title="${item.is_expense?'Remove from expenses':'Mark as expense — excluded from Excel'}">💳</button>
+      <button class="audit-btn" style="margin-left:4px" data-seq="${item.item_seq}" data-name="${esc(item.raw_name)}" data-price="${esc(item.price||'0.00')}" onclick="showSplitPanel(this.dataset.seq,this.dataset.name,this.dataset.price)" title="Split into two items">⌥</button>
+      <button class="audit-btn" style="color:var(--danger);margin-left:4px" onclick="deleteItem('${item.item_seq}')" title="Delete this line item">✕</button>
       <div class="audit-panel" id="ap-${item.item_seq}">${audit}</div>
     </td>
   </tr>`;
@@ -618,23 +1217,336 @@ function filterItemTypes(seq, q) {
     it.item_type_id.includes(ql) || (it.category_id||'').includes(ql) || (it.label||'').includes(ql)
   );
   dd.innerHTML = filtered.slice(0, 80)
-    .map(it=>`<div class="cat-option" onmousedown="pickItemType('${seq}','${it.item_type_id}','${it.category_id||it.item_type_id}','${it.label||it.item_type_id}')">${it.item_type_id}<span class="cat-type-hint">${it.category_id&&it.category_id!==it.item_type_id?' — '+it.category_id:''}</span></div>`)
-    .join('');
+    .map(it=>`<div class="cat-option" data-type="${esc(it.item_type_id)}" data-cat="${esc(it.category_id||it.item_type_id)}" data-label="${esc(it.label||it.item_type_id)}">${esc(it.item_type_id)}<span class="cat-type-hint">${it.category_id&&it.category_id!==it.item_type_id?' — '+esc(it.category_id):''}</span></div>`)
+    .join('') + `<div class="cat-option cat-option-create">＋ Create new item type</div>`;
   openDrop(seq);
 }
 function openDrop(seq)  { document.getElementById(`cd-${seq}`)?.classList.add('open'); }
 function closeDrop(seq) { document.getElementById(`cd-${seq}`)?.classList.remove('open'); }
+function selectTopMatch(seq) {
+  const src = _itemTypes.length ? _itemTypes : CATS.map(c=>({item_type_id:c,category_id:c,label:c}));
+  const q = (document.getElementById(`ci-${seq}`)?.value||'').toLowerCase().trim();
+  const match = q ? src.find(it=>it.item_type_id.includes(q)||(it.label||'').toLowerCase().includes(q)||(it.category_id||'').includes(q)) : null;
+  if (match) pickItemType(seq, match.item_type_id, match.category_id||match.item_type_id, match.label||match.item_type_id);
+  closeDrop(seq);
+  document.getElementById(`ci-${seq}`)?.blur();
+}
 function pickItemType(seq, itemTypeId, categoryId, label) {
   pendingCorrections[seq] = {item_type_id: itemTypeId, category: categoryId, label};
   const el = document.getElementById(`ci-${seq}`);
   if (el) el.value = label || itemTypeId;
   const catEl = document.getElementById(`cat-resolve-${seq}`);
-  if (catEl) catEl.textContent = categoryId;
+  if (catEl) {
+    if (![...catEl.options].some(o => o.value === categoryId)) {
+      const opt = document.createElement('option');
+      opt.value = opt.textContent = categoryId;
+      catEl.appendChild(opt);
+    }
+    catEl.value = categoryId;
+  }
   closeDrop(seq);
-  document.getElementById('topbar-actions').innerHTML =
-    `<button class="btn btn-primary btn-sm" onclick="submitCorrections()">Save corrections</button> <button class="btn btn-secondary btn-sm" onclick="reprocessReceipt('${currentReceiptId}')">↺ Reprocess</button>`;
+  document.getElementById('topbar-actions').innerHTML = _topbarHtml();
+}
+function pickCategory(seq, categoryId) {
+  const pend = pendingCorrections[seq] || {};
+  pendingCorrections[seq] = {...pend, category: categoryId};
+  document.getElementById('topbar-actions').innerHTML = _topbarHtml();
 }
 function toggleAudit(seq) { document.getElementById(`ap-${seq}`)?.classList.toggle('open'); }
+
+async function confirmItem(itemSeq) {
+  const pend = pendingCorrections[itemSeq];
+  const inputEl = document.getElementById(`ci-${itemSeq}`);
+  const catEl   = document.getElementById(`cat-resolve-${itemSeq}`);
+  const item_type_id = pend?.item_type_id || inputEl?.value || null;
+  const category     = pend?.category     || catEl?.value   || null;
+  if (!category) { toast('Cannot confirm: no category set', 'warning'); return; }
+  try {
+    const res = await apiFetch(`/receipts/${currentReceiptId}/confirm`, {
+      method:'POST',
+      body: JSON.stringify({items:[{item_seq: itemSeq, item_type_id, category}]})
+    });
+    delete pendingCorrections[itemSeq];
+    const row = document.getElementById(`row-${itemSeq}`);
+    if (row) {
+      row.style.background = 'var(--success-light)';
+      const badge = row.querySelector('.badge-yellow');
+      if (badge) { badge.className = 'badge badge-green'; badge.textContent = '✓ Fixed'; }
+      const confirmBtn = row.querySelector('.confirm-btn');
+      if (confirmBtn) confirmBtn.remove();
+    }
+    if (res.exported) { _summaryCache = null; toast('Receipt exported to master.xlsx ✓', 'success'); }
+    const totalRows = document.querySelectorAll('#detail-content tbody tr').length;
+    _updateDetailHeader(totalRows, res.still_open, res.status, res.exported);
+  } catch(e) { toast('Failed to confirm item', 'error'); }
+}
+
+async function _flushCorrections() {
+  const entries = Object.entries(pendingCorrections);
+  if (!entries.length) return;
+  try {
+    await apiFetch(`/receipts/${currentReceiptId}/confirm`, {
+      method:'POST',
+      body:JSON.stringify({items: entries.map(([item_seq, val]) => {
+        if (val && typeof val === 'object') {
+          return {item_seq, item_type_id: val.item_type_id, category: val.category};
+        }
+        return {item_seq, category: val};
+      })})
+    });
+    toast(`${entries.length} correction${entries.length>1?'s':''} auto-saved`, 'success');
+    pendingCorrections = {};
+  } catch(e) { toast('Failed to auto-save corrections', 'error'); }
+}
+
+function _updateDetailHeader(itemCount, stillOpen, status, exported) {
+  currentReceiptStatus = status;
+  const reviewed = itemCount - stillOpen;
+  const pct = itemCount ? Math.round(reviewed / itemCount * 100) : 0;
+  const fill = document.querySelector('.progress-fill');
+  const label = document.querySelector('.progress-label');
+  if (fill)  fill.style.width = `${pct}%`;
+  if (label) label.textContent = `${pct}% reviewed · ${stillOpen} remaining`;
+  const bannerEl = document.querySelector('.review-banner, .export-banner');
+  if (bannerEl) {
+    if (stillOpen > 0) {
+      bannerEl.className = 'review-banner';
+      bannerEl.textContent = `⚠ ${stillOpen} item${stillOpen>1?'s':''} need your review before export`;
+    } else {
+      bannerEl.className = 'export-banner';
+      bannerEl.textContent = exported ? '✓ All items exported to master.xlsx' : '✓ All items reviewed — export will trigger automatically';
+    }
+  }
+  document.getElementById('topbar-actions').innerHTML = _topbarHtml();
+}
+
+async function deleteReceipt(receiptId, evt) {
+  if (evt) evt.stopPropagation();
+  if (!confirm('Delete this receipt?\n\nThis removes it from the dashboard, S3, and master.xlsx. This cannot be undone.')) return;
+  try {
+    await apiFetch(`/receipts/${receiptId}`, {method:'DELETE'});
+    toast('Receipt deleted', 'success');
+    _invalidateListCaches();
+    if (currentReceiptId === receiptId) showView('dashboard');
+    loadDashboard();
+  } catch(e) { toast('Failed to delete receipt', 'error'); }
+}
+
+async function deleteItem(itemSeq) {
+  if (!confirm(`Delete this line item? This cannot be undone.`)) return;
+  await _flushCorrections();
+  try {
+    const res = await apiFetch(`/receipts/${currentReceiptId}/items/${itemSeq}`, {method:'DELETE'});
+    delete pendingCorrections[itemSeq];
+    const row = document.getElementById(`row-${itemSeq}`);
+    if (row) row.remove();
+    toast('Item deleted', 'success');
+    if (res.exported) toast('Receipt exported to master.xlsx ✓', 'success');
+    _updateDetailHeader(res.item_count, res.still_open, res.status, res.exported);
+  } catch(e) { toast('Failed to delete item', 'error'); }
+}
+
+function showSplitPanel(seq, rawName, price) {
+  // Remove any existing split panel first
+  const existing = document.getElementById('split-panel-row');
+  if (existing) existing.remove();
+  if (existing && existing.dataset.seq === seq) return; // toggle off
+
+  const row = document.getElementById(`row-${seq}`);
+  if (!row) return;
+
+  const cleanPrice = String(price).replace(/^[£\u00a3]/, '').trim();
+  const panelRow = document.createElement('tr');
+  panelRow.id = 'split-panel-row';
+  panelRow.dataset.seq = seq;
+  panelRow.innerHTML = `
+    <td colspan="6" style="padding:12px 8px;background:var(--bg2);border-top:2px solid var(--primary)">
+      <div style="font-size:13px;font-weight:600;color:var(--primary);margin-bottom:10px">Split into two items</div>
+      <div style="display:grid;grid-template-columns:1fr auto;gap:8px;align-items:center;margin-bottom:8px">
+        <input id="split-name1" type="text" placeholder="Item 1 name"
+          style="padding:8px;border:1px solid var(--border);border-radius:6px;font-size:13px;width:100%"
+          value="${rawName}">
+        <input id="split-price1" type="number" step="0.01" min="0" placeholder="£0.00" inputmode="decimal"
+          style="padding:8px;border:1px solid var(--border);border-radius:6px;font-size:13px;width:80px;text-align:right"
+          value="${cleanPrice}">
+      </div>
+      <div style="display:grid;grid-template-columns:1fr auto;gap:8px;align-items:center;margin-bottom:12px">
+        <input id="split-name2" type="text" placeholder="Item 2 name"
+          style="padding:8px;border:1px solid var(--border);border-radius:6px;font-size:13px;width:100%"
+          value="">
+        <input id="split-price2" type="number" step="0.01" min="0" placeholder="£0.00" inputmode="decimal"
+          style="padding:8px;border:1px solid var(--border);border-radius:6px;font-size:13px;width:80px;text-align:right"
+          value="">
+      </div>
+      <div style="display:flex;gap:8px;justify-content:flex-end">
+        <button class="btn btn-secondary btn-sm" onclick="document.getElementById('split-panel-row').remove()">Cancel</button>
+        <button class="btn btn-primary btn-sm" onclick="doSplit('${seq}')">Split ✓</button>
+      </div>
+    </td>`;
+  row.after(panelRow);
+  document.getElementById('split-name1').select();
+}
+
+async function doSplit(seq) {
+  const name1  = (document.getElementById('split-name1')?.value  || '').trim();
+  const price1 = (document.getElementById('split-price1')?.value || '0.00');
+  const name2  = (document.getElementById('split-name2')?.value  || '').trim();
+  const price2 = (document.getElementById('split-price2')?.value || '0.00');
+
+  if (!name1 || !name2) { toast('Both item names are required', 'error'); return; }
+
+  await _flushCorrections();
+  try {
+    await apiFetch(`/receipts/${currentReceiptId}/items/${seq}/split`, {
+      method: 'POST',
+      body: JSON.stringify({name1, price1, name2, price2})
+    });
+    document.getElementById('split-panel-row')?.remove();
+    toast('Item split — assign categories below', 'success');
+    openReceipt(currentReceiptId);
+  } catch(e) { toast('Split failed: ' + e.message, 'error'); }
+}
+
+function editPrice(seq, displayEl) {
+  if (document.getElementById(`price-input-${seq}`)) return; // already editing
+  const current = displayEl.textContent.replace(/^£/, '').trim();
+  const input = document.createElement('input');
+  input.type = 'text'; input.inputMode = 'decimal';
+  input.value = current === '—' ? '' : current;
+  input.style.cssText = 'width:70px;font-family:inherit;font-size:inherit;padding:2px 4px;border:1px solid var(--primary);border-radius:4px;text-align:right';
+  input.id = `price-input-${seq}`;
+  displayEl.replaceWith(input);
+  input.focus(); input.select();
+  async function save() {
+    const raw = input.value.trim().replace(/^£/, '');
+    const num = parseFloat(raw);
+    if (!isNaN(num) && num >= 0) {
+      try {
+        await apiFetch(`/receipts/${currentReceiptId}/items/${seq}`, {method:'PATCH', body: JSON.stringify({price: raw})});
+        const span = document.createElement('span');
+        span.style.cssText = 'font-family:"DM Mono",monospace;cursor:pointer';
+        span.title = 'Click to edit price';
+        span.id = `price-display-${seq}`;
+        span.textContent = '£' + num.toFixed(2);
+        span.onclick = function(){ editPrice(seq, this); };
+        input.replaceWith(span);
+        toast('Price updated', 'success');
+      } catch(e) { toast('Failed to update price', 'error'); input.focus(); }
+    } else {
+      const span = document.createElement('span');
+      span.style.cssText = 'font-family:"DM Mono",monospace;cursor:pointer';
+      span.title = 'Click to edit price';
+      span.id = `price-display-${seq}`;
+      span.textContent = current || '—';
+      span.onclick = function(){ editPrice(seq, this); };
+      input.replaceWith(span);
+    }
+  }
+  input.addEventListener('blur', save);
+  input.addEventListener('keydown', e => { if (e.key === 'Enter') { e.preventDefault(); input.blur(); } if (e.key === 'Escape') { input.value = current; input.blur(); } });
+}
+
+async function toggleExpense(itemSeq, currentState) {
+  const newState = !currentState;
+  try {
+    await apiFetch(`/receipts/${currentReceiptId}/items/${itemSeq}/expense`, {
+      method: 'POST',
+      body: JSON.stringify({is_expense: newState})
+    });
+    const btn = document.getElementById(`exp-btn-${itemSeq}`);
+    if (btn) {
+      btn.classList.toggle('active', newState);
+      btn.title = newState ? 'Remove from expenses' : 'Mark as expense — excluded from Excel';
+      btn.setAttribute('onclick', `toggleExpense('${itemSeq}',${newState})`);
+    }
+    toast(newState ? '💳 Marked as expense — excluded from Excel' : 'Removed from expenses', newState ? 'success' : '');
+  } catch(e) { toast('Failed to update expense: ' + e.message, 'error'); }
+}
+
+async function loadExpenses() {
+  document.getElementById('expenses-content').innerHTML = _skeletonTable();
+  try {
+    const d = await apiFetch('/expenses');
+    renderExpenses(d.expenses || []);
+  } catch(e) {
+    document.getElementById('expenses-content').innerHTML = `<div style="color:var(--danger);padding:20px">Failed to load expenses: ${esc(e.message)}</div>`;
+  }
+}
+
+function renderExpenses(items) {
+  if (!items.length) {
+    document.getElementById('expenses-content').innerHTML = emptyState('No expenses yet', 'Click 💳 on any line item to mark it as a personal expense');
+    return;
+  }
+  const rows = items.map(item => `
+    <tr>
+      <td><div style="font-weight:500">${esc(item.raw_name||'—')}</div>${item.normalized_name&&item.normalized_name!==item.raw_name?`<div style="font-size:11px;color:var(--text3)">${esc(item.normalized_name)}</div>`:''}</td>
+      <td>${esc(item.category||'—')}</td>
+      <td style="font-family:'DM Mono',monospace">${item.price?'£'+esc(String(item.price).replace(/^£/,'')):'—'}</td>
+      <td>${esc(fmtDate(item.receipt_date))}</td>
+      <td>${esc(item.retailer_name||'—')}</td>
+      <td>${item.image_url
+        ? `<a href="${esc(item.image_url)}" target="_blank" rel="noopener" class="btn btn-secondary btn-sm" style="text-decoration:none;display:inline-flex">⬇ Receipt</a>`
+        : '<span style="color:var(--text3);font-size:12px">No image</span>'
+      }</td>
+    </tr>`).join('');
+  document.getElementById('expenses-content').innerHTML = `
+    <div style="overflow-x:auto;-webkit-overflow-scrolling:touch">
+      <table class="exp-table">
+        <thead><tr>
+          <th>Item</th><th>Category</th><th>Price</th><th>Date</th><th>Store</th><th>Receipt</th>
+        </tr></thead>
+        <tbody>${rows}</tbody>
+      </table>
+    </div>
+    <div style="margin-top:12px;font-size:12px;color:var(--text3)">${items.length} expense item${items.length!==1?'s':''} total</div>`;
+}
+
+// Inline create-item-type — triggered from the dropdown
+let _inlineCreateSeq = null;
+function openInlineCreateItemType(seq) {
+  _inlineCreateSeq = seq;
+  document.getElementById('icit-name').value = '';
+  const sel  = document.getElementById('icit-cat');
+  const src  = _categories.length ? _categories : CATS.map(c=>({category_id:c,name:c}));
+  sel.innerHTML = src.map(c=>`<option value="${c.category_id}">${c.name||c.category_id}</option>`).join('');
+  document.getElementById('inline-create-item-type').classList.add('open');
+}
+async function submitInlineCreateItemType() {
+  const rawName    = document.getElementById('icit-name').value.trim();
+  const categoryId = document.getElementById('icit-cat').value;
+  if (!rawName || !categoryId) { toast('Name and category required', 'warning'); return; }
+  const item_type_id = rawName.toLowerCase().replace(/\s+/g, '_');
+  try {
+    await apiFetch('/item-types', {method:'POST', body:JSON.stringify({item_type_id, category_id:categoryId, label:rawName})});
+    const newType = {item_type_id, category_id:categoryId, label:rawName};
+    _itemTypes.push(newType);
+    document.getElementById('inline-create-item-type').classList.remove('open');
+    if (_inlineCreateSeq) pickItemType(_inlineCreateSeq, item_type_id, categoryId, rawName);
+    toast(`Created "${item_type_id}"`, 'success');
+  } catch(e) { toast('Create failed: '+e.message, 'error'); }
+}
+
+async function confirmExport() {
+  await _flushCorrections();
+  const entries = Object.entries(pendingCorrections);
+  try {
+    const items = entries.map(([item_seq, val]) => {
+      if (val && typeof val === 'object') return {item_seq, item_type_id: val.item_type_id, category: val.category};
+      return {item_seq, category: val};
+    });
+    const res = await apiFetch(`/receipts/${currentReceiptId}/confirm`, {
+      method:'POST',
+      body: JSON.stringify({items})
+    });
+    if (entries.length) toast(`${entries.length} correction${entries.length>1?'s':''} saved`, 'success');
+    _summaryCache = null;
+    if (res.exported) toast('Receipt exported to master.xlsx ✓', 'success');
+    else toast('Export complete ✓', 'success');
+    pendingCorrections = {};
+    await openReceipt(currentReceiptId);
+  } catch(e) { toast('Export failed: '+e.message, 'error'); }
+}
 
 async function submitCorrections() {
   const entries = Object.entries(pendingCorrections);
@@ -649,21 +1561,73 @@ async function submitCorrections() {
         return {item_seq, category: val};
       })})
     });
+    _summaryCache = null;
     toast(`${entries.length} correction${entries.length>1?'s':''} saved`,'success');
     if (res.exported) toast('Receipt exported to master.xlsx ✓','success');
     pendingCorrections = {};
-    await openReceipt(currentReceiptId);
+    // Update confirmed rows visually and refresh header — no full re-render
+    entries.forEach(([item_seq]) => {
+      const row = document.getElementById(`row-${item_seq}`);
+      if (row) {
+        row.style.background = 'var(--success-light)';
+        const badge = row.querySelector('.badge-yellow');
+        if (badge) { badge.className = 'badge badge-green'; badge.textContent = '✓ Fixed'; }
+        const confirmBtn = row.querySelector('.confirm-btn');
+        if (confirmBtn) confirmBtn.remove();
+      }
+    });
+    const totalRows = document.querySelectorAll('#detail-content tbody tr').length;
+    _updateDetailHeader(totalRows, res.still_open, res.status, res.exported);
   } catch(e) { toast('Failed to save corrections','error'); }
 }
 
+function openScanAndCamera() {
+  openScanModal();
+  setTimeout(() => document.getElementById('camera-input').click(), 150);
+}
+
 async function openScanModal() {
+  document.querySelector('.sidebar').classList.remove('open');
+  document.getElementById('sidebar-backdrop').classList.remove('open');
   document.getElementById('scan-modal').classList.add('open');
   try {
     const d = await apiFetch('/retailers');
     const sel = document.getElementById('scan-store');
     sel.innerHTML = '<option value="unknown">Auto-detect from receipt</option>';
     (d.retailers||[]).forEach(r=>{ const o=document.createElement('option'); o.value=r.retailer_id; o.textContent=r.name; sel.appendChild(o); });
+    const newOpt = document.createElement('option'); newOpt.value='__new__'; newOpt.textContent='＋ Create new store…'; sel.appendChild(newOpt);
   } catch(e) {}
+}
+
+function openNewStoreModal() {
+  document.getElementById('ns-name').value = '';
+  document.getElementById('ns-id').value = '';
+  document.getElementById('new-store-modal').classList.add('open');
+}
+
+function closeNewStoreModal() {
+  document.getElementById('new-store-modal').classList.remove('open');
+  document.getElementById('scan-store').value = 'unknown';
+}
+
+async function createNewStore() {
+  const name = document.getElementById('ns-name').value.trim();
+  if (!name) { toast('Store name is required', 'warning'); return; }
+  const retailer_id = (document.getElementById('ns-id').value.trim() || name.toLowerCase().replace(/\s+/g,'_'));
+  try {
+    await apiFetch('/retailers', {method:'POST', body:JSON.stringify({
+      retailer_id, name,
+      header_patterns: [name.toLowerCase(), retailer_id],
+      aliases: [], strip_prefixes: [], skip_patterns: []
+    })});
+    document.getElementById('new-store-modal').classList.remove('open');
+    const sel = document.getElementById('scan-store');
+    const opt = document.createElement('option');
+    opt.value = retailer_id; opt.textContent = name;
+    sel.insertBefore(opt, sel.lastElementChild); // before the "+ Create new store" option
+    sel.value = retailer_id;
+    toast(`Store "${name}" created`, 'success');
+  } catch(e) { toast('Failed to create store: '+e.message, 'error'); }
 }
 
 function closeScanModal() {
@@ -672,6 +1636,7 @@ function closeScanModal() {
   document.getElementById('drop-zone').innerHTML=`<div class="drop-icon">📷</div><div class="drop-text">Click to upload or drag &amp; drop</div><div class="drop-sub">JPG or PNG</div>`;
   document.getElementById('scan-btn').disabled=true;
   document.getElementById('file-input').value='';
+  document.getElementById('camera-input').value='';
 }
 
 function onFileSelect(e) {
@@ -695,28 +1660,22 @@ dz.addEventListener('drop',e=>{
 
 async function startScan() {
   if(!selectedFile) return;
+  const file=selectedFile;
   const storeId=document.getElementById('scan-store').value;
   closeScanModal();
   showProc('Uploading receipt…','Sending photo to server');
   try {
     const resp=await apiFetch('/receipts/upload-url',{method:'POST',
-      body:JSON.stringify({filename:selectedFile.name,store_id:storeId,content_type:selectedFile.type||'image/jpeg'})});
+      body:JSON.stringify({filename:file.name,store_id:storeId,content_type:file.type||'image/jpeg'})});
     const receiptId=resp.receipt_id;
 
     updateProc('Uploading photo…','Sending to S3');
-    await fetch(resp.upload_url,{method:'PUT',body:selectedFile,headers:{'Content-Type':selectedFile.type||'image/jpeg'}});
+    await fetch(resp.upload_url,{method:'PUT',body:file,headers:{'Content-Type':file.type||'image/jpeg'}});
 
-    updateProc('Processing receipt…','Textract is reading your receipt');
-    let status='pending',attempts=0;
-    while(['pending','processing'].includes(status)&&attempts<24){
-      await sleep(5000);attempts++;
-      try{const r=await apiFetch(`/receipts/${receiptId}`);status=r.receipt?.status;}catch(e){}
-      updateProc('Processing receipt…',`Analysing items… (${attempts*5}s)`);
-    }
     hideProc();
-    if(status==='failed'){toast('Processing failed — please try again','error');return;}
-    toast('Receipt scanned successfully!','success');
-    openReceipt(receiptId);
+    toast('Receipt uploaded — processing in background','success');
+    _invalidateListCaches();
+    showView('receipts');
   } catch(e){hideProc();toast('Scan failed: '+e.message,'error');}
 }
 
@@ -728,12 +1687,121 @@ function sleep(ms){return new Promise(r=>setTimeout(r,ms));}
 function loadingHtml(msg=''){return `<div style="text-align:center;padding:48px;color:var(--text3)"><div style="width:22px;height:22px;border:2px solid var(--border);border-top-color:var(--accent);border-radius:50%;animation:spin 0.8s linear infinite;margin:0 auto 12px"></div>${msg?`<div style="font-size:13px">${msg}</div>`:''}</div>`;}
 function emptyState(t,s){return `<div class="empty"><div class="empty-icon">🧾</div><div class="empty-title">${t}</div><div style="font-size:13px">${s}</div></div>`;}
 
+// Delegated listener for item-type dropdown options (data-* approach — no inline handlers)
+document.addEventListener('mousedown', e => {
+  const opt = e.target.closest('.cat-option');
+  if (!opt) return;
+  const dd = opt.closest('.cat-dropdown');
+  if (!dd) return;
+  const seq = dd.dataset.seq;
+  if (!seq) return;
+  if (opt.classList.contains('cat-option-create')) { openInlineCreateItemType(seq); return; }
+  pickItemType(seq, opt.dataset.type, opt.dataset.cat, opt.dataset.label);
+});
+
 function toggleSidebar() {
   document.querySelector('.sidebar').classList.toggle('open');
   document.getElementById('sidebar-backdrop').classList.toggle('open');
 }
 
-loadDashboard();
+// ── Auth (Cognito PKCE) ────────────────────────────────────────────────────
+function _generateRandom(len) {
+  const arr = new Uint8Array(len);
+  crypto.getRandomValues(arr);
+  return btoa(String.fromCharCode(...arr)).replace(/\+/g,'-').replace(/\//g,'_').replace(/=/g,'');
+}
+
+async function _codeChallenge(verifier) {
+  const data = new TextEncoder().encode(verifier);
+  const hash = await crypto.subtle.digest('SHA-256', data);
+  return btoa(String.fromCharCode(...new Uint8Array(hash))).replace(/\+/g,'-').replace(/\//g,'_').replace(/=/g,'');
+}
+
+async function initAuth() {
+  const cfg = window.APP_CONFIG;
+  const params = new URLSearchParams(window.location.search);
+  const code = params.get('code');
+  console.log('[auth] initAuth — code present:', !!code, '— access_token in storage:', !!localStorage.getItem('access_token'));
+
+  if (code) {
+    // Verify state to prevent CSRF on the auth callback
+    const returnedState = params.get('state');
+    const expectedState = sessionStorage.getItem('pkce_state');
+    console.log('[auth] state check — returned:', returnedState, '— expected:', expectedState);
+    if (!returnedState || returnedState !== expectedState) {
+      // State mismatch — clear stale session data and fall through to new login redirect
+      console.warn('[auth] OAuth state mismatch, restarting auth. expected:', expectedState, 'got:', returnedState);
+      ['access_token','id_token','refresh_token'].forEach(k => localStorage.removeItem(k));
+      sessionStorage.clear();
+      window.history.replaceState({}, '', window.location.pathname);
+      // fall through to the login-redirect block below
+    } else {
+      sessionStorage.removeItem('pkce_state');
+
+      // Exchange auth code for tokens
+      const verifier = sessionStorage.getItem('pkce_verifier');
+      sessionStorage.removeItem('pkce_verifier');
+      const resp = await fetch(`${cfg.cognitoUrl}/oauth2/token`, {
+        method: 'POST',
+        headers: {'Content-Type': 'application/x-www-form-urlencoded'},
+        body: new URLSearchParams({
+          grant_type: 'authorization_code',
+          client_id: cfg.clientId,
+          code,
+          redirect_uri: cfg.redirectUri,
+          code_verifier: verifier
+        })
+      });
+      const tokens = await resp.json();
+      console.log('[auth] token exchange result — keys:', Object.keys(tokens), '— error:', tokens.error || 'none');
+      window.history.replaceState({}, '', window.location.pathname);
+      if (tokens.access_token) {
+        localStorage.setItem('id_token', tokens.id_token || '');
+        localStorage.setItem('access_token', tokens.access_token);
+        localStorage.setItem('refresh_token', tokens.refresh_token || '');
+        loadDashboard();
+        return;
+      } else {
+        // Token exchange failed — show error, do NOT call signOut() (would loop)
+        const reason = tokens.error_description || tokens.error || 'Unknown error';
+        console.error('Token exchange failed:', reason, tokens);
+        document.body.innerHTML = `<div style="display:flex;align-items:center;justify-content:center;height:100vh;font-family:sans-serif;color:#555;text-align:center"><div><p style="font-size:18px;margin-bottom:12px">Login failed</p><p style="margin-bottom:20px;color:#888">${esc(reason)}</p><button onclick="window.location.href=window.location.pathname" style="padding:10px 24px;background:#4f46e5;color:#fff;border:none;border-radius:6px;cursor:pointer;font-size:14px">Try again</button></div></div>`;
+        return;
+      }
+    }
+  }
+
+  if (localStorage.getItem('access_token')) {
+    loadDashboard();
+    return;
+  }
+
+  // Not logged in — redirect to Cognito Hosted UI
+  const verifier = _generateRandom(64);
+  const challenge = await _codeChallenge(verifier);
+  const state = _generateRandom(32);
+  sessionStorage.setItem('pkce_verifier', verifier);
+  sessionStorage.setItem('pkce_state', state);
+  const loginUrl = `${cfg.cognitoUrl}/oauth2/authorize?` + new URLSearchParams({
+    response_type: 'code',
+    client_id: cfg.clientId,
+    redirect_uri: cfg.redirectUri,
+    scope: 'openid email profile',
+    code_challenge: challenge,
+    code_challenge_method: 'S256',
+    state
+  });
+  window.location.href = loginUrl;
+}
+
+function signOut() {
+  ['access_token','id_token','refresh_token'].forEach(k => localStorage.removeItem(k));
+  sessionStorage.clear();
+  const cfg = window.APP_CONFIG;
+  window.location.href = `${cfg.cognitoUrl}/logout?client_id=${cfg.clientId}&logout_uri=${encodeURIComponent(cfg.redirectUri)}`;
+}
+
+initAuth();
 </script>
 </body>
 </html>

@@ -1,0 +1,270 @@
+<mxfile host="app.diagrams.net" modified="2026-03-14" version="21.0.0">
+  <diagram id="cicd" name="GitHub Actions CI/CD Pipeline">
+    <mxGraphModel dx="1422" dy="762" grid="1" gridSize="10" guides="1" tooltips="1" connect="1" arrows="1" fold="1" page="1" pageScale="1" pageWidth="1654" pageHeight="950" math="0" shadow="0">
+      <root>
+        <mxCell id="0" />
+        <mxCell id="1" parent="0" />
+
+        <!-- ===== ZONE BACKGROUNDS ===== -->
+
+        <mxCell id="zone_dev" value="" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#dae8fc;strokeColor=#6c8ebf;arcSize=3;opacity=40;" vertex="1" parent="1">
+          <mxGeometry x="20" y="20" width="1614" height="130" as="geometry" />
+        </mxCell>
+        <mxCell id="zone_dev_lbl" value="👨‍💻  DEVELOPER" style="text;html=1;strokeColor=none;fillColor=none;align=left;verticalAlign=middle;fontSize=11;fontStyle=1;fontColor=#336791;" vertex="1" parent="1">
+          <mxGeometry x="32" y="22" width="180" height="24" as="geometry" />
+        </mxCell>
+
+        <mxCell id="zone_actions" value="" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#fff2cc;strokeColor=#d6b656;arcSize=3;opacity=40;" vertex="1" parent="1">
+          <mxGeometry x="20" y="160" width="1614" height="540" as="geometry" />
+        </mxCell>
+        <mxCell id="zone_actions_lbl" value="⚙️  GITHUB ACTIONS" style="text;html=1;strokeColor=none;fillColor=none;align=left;verticalAlign=middle;fontSize=11;fontStyle=1;fontColor=#856404;" vertex="1" parent="1">
+          <mxGeometry x="32" y="162" width="220" height="24" as="geometry" />
+        </mxCell>
+
+        <mxCell id="zone_aws" value="" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#d5e8d4;strokeColor=#82b366;arcSize=3;opacity=40;" vertex="1" parent="1">
+          <mxGeometry x="20" y="710" width="1614" height="210" as="geometry" />
+        </mxCell>
+        <mxCell id="zone_aws_lbl" value="☁️  AWS  (eu-west-2)" style="text;html=1;strokeColor=none;fillColor=none;align=left;verticalAlign=middle;fontSize=11;fontStyle=1;fontColor=#2d6a4f;" vertex="1" parent="1">
+          <mxGeometry x="32" y="712" width="220" height="24" as="geometry" />
+        </mxCell>
+
+        <!-- ===== WORKFLOW COLUMN BACKGROUNDS ===== -->
+
+        <mxCell id="wf_pr_bg" value="" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#f8cecc;strokeColor=#b85450;arcSize=4;dashed=1;dashPattern=8 4;" vertex="1" parent="1">
+          <mxGeometry x="300" y="185" width="380" height="500" as="geometry" />
+        </mxCell>
+        <mxCell id="wf_pr_title" value="🔍  pr-check.yml" style="text;html=1;strokeColor=none;fillColor=none;align=center;verticalAlign=middle;fontSize=11;fontStyle=1;fontColor=#b85450;" vertex="1" parent="1">
+          <mxGeometry x="300" y="188" width="380" height="24" as="geometry" />
+        </mxCell>
+
+        <mxCell id="wf_dev_bg" value="" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#dae8fc;strokeColor=#6c8ebf;arcSize=4;dashed=1;dashPattern=8 4;" vertex="1" parent="1">
+          <mxGeometry x="700" y="185" width="420" height="500" as="geometry" />
+        </mxCell>
+        <mxCell id="wf_dev_title" value="🚀  deploy-dev.yml" style="text;html=1;strokeColor=none;fillColor=none;align=center;verticalAlign=middle;fontSize=11;fontStyle=1;fontColor=#336791;" vertex="1" parent="1">
+          <mxGeometry x="700" y="188" width="420" height="24" as="geometry" />
+        </mxCell>
+
+        <mxCell id="wf_prod_bg" value="" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#d5e8d4;strokeColor=#82b366;arcSize=4;dashed=1;dashPattern=8 4;" vertex="1" parent="1">
+          <mxGeometry x="1180" y="185" width="440" height="500" as="geometry" />
+        </mxCell>
+        <mxCell id="wf_prod_title" value="🏭  deploy-prod.yml" style="text;html=1;strokeColor=none;fillColor=none;align=center;verticalAlign=middle;fontSize=11;fontStyle=1;fontColor=#2d6a4f;" vertex="1" parent="1">
+          <mxGeometry x="1180" y="188" width="440" height="24" as="geometry" />
+        </mxCell>
+
+        <!-- ===== DEVELOPER ROW ===== -->
+
+        <mxCell id="dev_laptop" value="💻 Developer" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#ffffff;strokeColor=#6c8ebf;fontStyle=1;fontSize=12;" vertex="1" parent="1">
+          <mxGeometry x="30" y="50" width="130" height="60" as="geometry" />
+        </mxCell>
+
+        <mxCell id="feature_branch" value="feature/* branch" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#ffe6cc;strokeColor=#d79b00;fontSize=11;" vertex="1" parent="1">
+          <mxGeometry x="200" y="50" width="150" height="60" as="geometry" />
+        </mxCell>
+
+        <mxCell id="pr_node" value="Pull Request" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#e1d5e7;strokeColor=#9673a6;fontSize=11;" vertex="1" parent="1">
+          <mxGeometry x="395" y="50" width="140" height="60" as="geometry" />
+        </mxCell>
+
+        <mxCell id="pr_review_node" value="👁 Code Review&#xa;(team member)" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#e1d5e7;strokeColor=#9673a6;fontSize=11;" vertex="1" parent="1">
+          <mxGeometry x="575" y="50" width="150" height="60" as="geometry" />
+        </mxCell>
+
+        <mxCell id="main_branch" value="main branch" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#d5e8d4;strokeColor=#82b366;fontSize=11;fontStyle=1;" vertex="1" parent="1">
+          <mxGeometry x="795" y="50" width="150" height="60" as="geometry" />
+        </mxCell>
+
+        <mxCell id="manual_dispatch" value="▶ Run workflow&#xa;(GitHub Actions UI)" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#f9dbc8;strokeColor=#82b366;fontSize=11;fontStyle=1;" vertex="1" parent="1">
+          <mxGeometry x="1290" y="50" width="200" height="60" as="geometry" />
+        </mxCell>
+
+        <!-- ===== PR CHECK STEPS ===== -->
+
+        <mxCell id="pr_trig_lbl" value="Trigger: on pull_request → branches: [main]" style="text;html=1;strokeColor=none;fillColor=#fde3e3;align=center;verticalAlign=middle;fontSize=9;fontStyle=2;rounded=1;" vertex="1" parent="1">
+          <mxGeometry x="315" y="220" width="350" height="22" as="geometry" />
+        </mxCell>
+
+        <mxCell id="pr_s1" value="sam validate" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#ffffff;strokeColor=#b85450;fontSize=11;" vertex="1" parent="1">
+          <mxGeometry x="380" y="260" width="220" height="45" as="geometry" />
+        </mxCell>
+
+        <mxCell id="pr_s2" value="python -m py_compile&#xa;(all lambda handlers)" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#ffffff;strokeColor=#b85450;fontSize=11;" vertex="1" parent="1">
+          <mxGeometry x="350" y="325" width="280" height="50" as="geometry" />
+        </mxCell>
+
+        <mxCell id="pr_diamond" value="All checks pass?" style="rhombus;whiteSpace=wrap;html=1;fillColor=#f8cecc;strokeColor=#b85450;fontSize=11;" vertex="1" parent="1">
+          <mxGeometry x="380" y="395" width="220" height="75" as="geometry" />
+        </mxCell>
+
+        <mxCell id="pr_pass" value="✅ Merge enabled" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#d5e8d4;strokeColor=#82b366;fontSize=11;" vertex="1" parent="1">
+          <mxGeometry x="310" y="500" width="150" height="45" as="geometry" />
+        </mxCell>
+
+        <mxCell id="pr_fail" value="❌ Merge blocked" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#f8cecc;strokeColor=#b85450;fontSize=11;" vertex="1" parent="1">
+          <mxGeometry x="510" y="500" width="150" height="45" as="geometry" />
+        </mxCell>
+
+        <!-- ===== DEPLOY DEV STEPS ===== -->
+
+        <mxCell id="dev_trig_lbl" value="Trigger: on push → branches: [main]" style="text;html=1;strokeColor=none;fillColor=#dae8fc;align=center;verticalAlign=middle;fontSize=9;fontStyle=2;rounded=1;" vertex="1" parent="1">
+          <mxGeometry x="715" y="220" width="390" height="22" as="geometry" />
+        </mxCell>
+
+        <mxCell id="dev_s1" value="sam build" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#ffffff;strokeColor=#6c8ebf;fontSize=11;" vertex="1" parent="1">
+          <mxGeometry x="790" y="260" width="240" height="45" as="geometry" />
+        </mxCell>
+
+        <mxCell id="dev_s2" value="sam deploy --config-env dev&#xa;--no-confirm-changeset" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#ffffff;strokeColor=#6c8ebf;fontSize=11;" vertex="1" parent="1">
+          <mxGeometry x="760" y="325" width="300" height="50" as="geometry" />
+        </mxCell>
+
+        <mxCell id="dev_s3" value="upload-frontend -Env dev" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#ffffff;strokeColor=#6c8ebf;fontSize=11;" vertex="1" parent="1">
+          <mxGeometry x="790" y="395" width="240" height="45" as="geometry" />
+        </mxCell>
+
+        <mxCell id="dev_s4" value="CloudFront cache invalidation" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#ffffff;strokeColor=#6c8ebf;fontSize=11;" vertex="1" parent="1">
+          <mxGeometry x="790" y="460" width="240" height="45" as="geometry" />
+        </mxCell>
+
+        <mxCell id="dev_s5" value="✅ Post GitHub job summary&#xa;(stack outputs + CF URL)" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#d5e8d4;strokeColor=#82b366;fontSize=11;" vertex="1" parent="1">
+          <mxGeometry x="790" y="525" width="240" height="50" as="geometry" />
+        </mxCell>
+
+        <!-- ===== DEPLOY PROD STEPS ===== -->
+
+        <mxCell id="prod_trig_lbl" value="Trigger: workflow_dispatch (manual button in GitHub Actions UI)" style="text;html=1;strokeColor=none;fillColor=#d5e8d4;align=center;verticalAlign=middle;fontSize=9;fontStyle=2;rounded=1;" vertex="1" parent="1">
+          <mxGeometry x="1195" y="220" width="410" height="22" as="geometry" />
+        </mxCell>
+
+        <mxCell id="prod_s1" value="sam build" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#ffffff;strokeColor=#82b366;fontSize=11;" vertex="1" parent="1">
+          <mxGeometry x="1280" y="260" width="240" height="45" as="geometry" />
+        </mxCell>
+
+        <mxCell id="prod_s2" value="sam deploy --no-execute-changeset&#xa;(preview what will change)" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#fff2cc;strokeColor=#d6b656;fontSize=11;" vertex="1" parent="1">
+          <mxGeometry x="1240" y="325" width="320" height="50" as="geometry" />
+        </mxCell>
+
+        <mxCell id="prod_gate" value="🔐 GitHub Environment: production&#xa;Required reviewer must approve&#xa;(changeset shown in job summary)" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#ffe6cc;strokeColor=#d79b00;fontSize=11;fontStyle=1;" vertex="1" parent="1">
+          <mxGeometry x="1240" y="395" width="320" height="70" as="geometry" />
+        </mxCell>
+
+        <mxCell id="prod_s3" value="sam deploy --config-env prod&#xa;--no-confirm-changeset" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#ffffff;strokeColor=#82b366;fontSize=11;" vertex="1" parent="1">
+          <mxGeometry x="1250" y="485" width="300" height="50" as="geometry" />
+        </mxCell>
+
+        <mxCell id="prod_s4" value="upload-frontend -Env prod&#xa;CloudFront cache invalidation" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#ffffff;strokeColor=#82b366;fontSize=11;" vertex="1" parent="1">
+          <mxGeometry x="1260" y="555" width="280" height="50" as="geometry" />
+        </mxCell>
+
+        <!-- ===== AWS ENVIRONMENTS ===== -->
+
+        <mxCell id="aws_dev_box" value="🏗️  grocery-scanner-DEV&#xa;&#xa;Lambda · DynamoDB · S3 · API GW&#xa;CloudFront: d34shldjctzphb.cloudfront.net" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#dae8fc;strokeColor=#6c8ebf;fontSize=11;fontStyle=1;" vertex="1" parent="1">
+          <mxGeometry x="680" y="730" width="380" height="160" as="geometry" />
+        </mxCell>
+
+        <mxCell id="aws_prod_box" value="🚀  grocery-scanner-PROD&#xa;&#xa;Lambda · DynamoDB · S3 · API GW&#xa;CloudFront: dmsq3wtut3507.cloudfront.net" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#2d6a4f;strokeColor=#1b4332;fontSize=11;fontStyle=1;fontColor=#ffffff;" vertex="1" parent="1">
+          <mxGeometry x="1190" y="730" width="400" height="160" as="geometry" />
+        </mxCell>
+
+        <!-- ===== LEGEND ===== -->
+        <mxCell id="legend" value="&lt;b&gt;Legend&lt;/b&gt;&lt;br&gt;━━ Step / manual action&lt;br&gt;╌╌ Automatic trigger&lt;br&gt;🔐 Human approval gate&lt;br&gt;✅ Success output&lt;br&gt;❌ Failure output" style="text;html=1;strokeColor=#999999;fillColor=#f5f5f5;align=left;verticalAlign=top;spacingLeft=8;spacingTop=6;fontSize=10;rounded=1;" vertex="1" parent="1">
+          <mxGeometry x="30" y="730" width="190" height="110" as="geometry" />
+        </mxCell>
+
+        <!-- ===== ARROWS — DEVELOPER ROW ===== -->
+
+        <mxCell id="a_dev_feat" value="git push" style="edgeStyle=orthogonalEdgeStyle;rounded=0;orthogonalLoop=1;jettySize=auto;fontSize=10;" edge="1" source="dev_laptop" target="feature_branch" parent="1">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+
+        <mxCell id="a_feat_pr" value="open PR" style="edgeStyle=orthogonalEdgeStyle;rounded=0;fontSize=10;" edge="1" source="feature_branch" target="pr_node" parent="1">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+
+        <mxCell id="a_pr_review" value="requests review" style="edgeStyle=orthogonalEdgeStyle;rounded=0;fontSize=10;" edge="1" source="pr_node" target="pr_review_node" parent="1">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+
+        <mxCell id="a_review_main" value="approved → merge" style="edgeStyle=orthogonalEdgeStyle;rounded=0;fontSize=10;" edge="1" source="pr_review_node" target="main_branch" parent="1">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+
+        <!-- ===== ARROWS — TRIGGERS INTO WORKFLOWS ===== -->
+
+        <mxCell id="a_pr_wf" value="triggers" style="edgeStyle=orthogonalEdgeStyle;rounded=0;dashed=1;dashPattern=6 3;fontSize=10;exitX=0.5;exitY=1;exitDx=0;exitDy=0;entryX=0.5;entryY=0;entryDx=0;entryDy=0;" edge="1" source="pr_node" target="pr_s1" parent="1">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+
+        <mxCell id="a_main_devwf" value="triggers" style="edgeStyle=orthogonalEdgeStyle;rounded=0;dashed=1;dashPattern=6 3;fontSize=10;exitX=0.5;exitY=1;exitDx=0;exitDy=0;entryX=0.5;entryY=0;entryDx=0;entryDy=0;" edge="1" source="main_branch" target="dev_s1" parent="1">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+
+        <mxCell id="a_manual_prodwf" value="triggers" style="edgeStyle=orthogonalEdgeStyle;rounded=0;dashed=1;dashPattern=6 3;fontSize=10;exitX=0.5;exitY=1;exitDx=0;exitDy=0;entryX=0.5;entryY=0;entryDx=0;entryDy=0;" edge="1" source="manual_dispatch" target="prod_s1" parent="1">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+
+        <!-- ===== ARROWS — PR CHECK STEPS ===== -->
+
+        <mxCell id="a_pr_s1_s2" value="" style="edgeStyle=orthogonalEdgeStyle;rounded=0;" edge="1" source="pr_s1" target="pr_s2" parent="1">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+
+        <mxCell id="a_pr_s2_d" value="" style="edgeStyle=orthogonalEdgeStyle;rounded=0;" edge="1" source="pr_s2" target="pr_diamond" parent="1">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+
+        <mxCell id="a_pr_d_pass" value="Yes" style="edgeStyle=orthogonalEdgeStyle;rounded=0;fontSize=10;exitX=0;exitY=0.5;exitDx=0;exitDy=0;entryX=0.5;entryY=0;entryDx=0;entryDy=0;" edge="1" source="pr_diamond" target="pr_pass" parent="1">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+
+        <mxCell id="a_pr_d_fail" value="No" style="edgeStyle=orthogonalEdgeStyle;rounded=0;fontSize=10;exitX=1;exitY=0.5;exitDx=0;exitDy=0;entryX=0.5;entryY=0;entryDx=0;entryDy=0;" edge="1" source="pr_diamond" target="pr_fail" parent="1">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+
+        <!-- ===== ARROWS — DEPLOY DEV STEPS ===== -->
+
+        <mxCell id="a_dev_s1_s2" value="" style="edgeStyle=orthogonalEdgeStyle;rounded=0;" edge="1" source="dev_s1" target="dev_s2" parent="1">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+
+        <mxCell id="a_dev_s2_s3" value="" style="edgeStyle=orthogonalEdgeStyle;rounded=0;" edge="1" source="dev_s2" target="dev_s3" parent="1">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+
+        <mxCell id="a_dev_s3_s4" value="" style="edgeStyle=orthogonalEdgeStyle;rounded=0;" edge="1" source="dev_s3" target="dev_s4" parent="1">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+
+        <mxCell id="a_dev_s4_s5" value="" style="edgeStyle=orthogonalEdgeStyle;rounded=0;" edge="1" source="dev_s4" target="dev_s5" parent="1">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+
+        <mxCell id="a_dev_aws" value="deploys to" style="edgeStyle=orthogonalEdgeStyle;rounded=0;strokeColor=#6c8ebf;fontStyle=1;fontSize=10;exitX=0.5;exitY=1;exitDx=0;exitDy=0;entryX=0.5;entryY=0;entryDx=0;entryDy=0;strokeWidth=2;" edge="1" source="dev_s5" target="aws_dev_box" parent="1">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+
+        <!-- ===== ARROWS — DEPLOY PROD STEPS ===== -->
+
+        <mxCell id="a_prod_s1_s2" value="" style="edgeStyle=orthogonalEdgeStyle;rounded=0;" edge="1" source="prod_s1" target="prod_s2" parent="1">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+
+        <mxCell id="a_prod_s2_gate" value="" style="edgeStyle=orthogonalEdgeStyle;rounded=0;" edge="1" source="prod_s2" target="prod_gate" parent="1">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+
+        <mxCell id="a_prod_gate_s3" value="approved" style="edgeStyle=orthogonalEdgeStyle;rounded=0;fontSize=10;" edge="1" source="prod_gate" target="prod_s3" parent="1">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+
+        <mxCell id="a_prod_s3_s4" value="" style="edgeStyle=orthogonalEdgeStyle;rounded=0;" edge="1" source="prod_s3" target="prod_s4" parent="1">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+
+        <mxCell id="a_prod_aws" value="deploys to" style="edgeStyle=orthogonalEdgeStyle;rounded=0;strokeColor=#2d6a4f;fontStyle=1;fontSize=10;exitX=0.5;exitY=1;exitDx=0;exitDy=0;entryX=0.5;entryY=0;entryDx=0;entryDy=0;strokeWidth=2;" edge="1" source="prod_s4" target="aws_prod_box" parent="1">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+
+      </root>
+    </mxGraphModel>
+  </diagram>
+</mxfile>

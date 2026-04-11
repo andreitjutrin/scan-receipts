@@ -1,0 +1,530 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Receipt Scanner — UI Redesign Mockup</title>
+<link href="https://fonts.googleapis.com/css2?family=DM+Sans:wght@300;400;500;600&family=DM+Mono:wght@400;500&display=optional" rel="stylesheet">
+<style>
+:root {
+  --bg:#F7F6F3; --surface:#FFFFFF; --surface2:#F0EFEB; --border:#E5E3DC;
+  --text:#1A1916; --text2:#6B6860; --text3:#9B9A94;
+  --accent:#2A6049; --accent-light:#EAF2EE;
+  --warning:#D68910; --warning-light:#FEF9E7;
+  --danger:#C0392B; --danger-light:#FDECEA;
+  --success:#27AE60; --success-light:#EAFAF1;
+  --shadow:0 1px 3px rgba(0,0,0,0.06); --shadow-md:0 4px 12px rgba(0,0,0,0.08);
+  --radius:10px; --radius-sm:6px; --radius-lg:16px;
+}
+*{box-sizing:border-box;margin:0;padding:0}
+html,body{overflow-x:hidden}
+body{font-family:'DM Sans',sans-serif;background:var(--bg);color:var(--text);min-height:100vh;font-size:14px;line-height:1.5}
+
+/* ── Layout ── */
+.app{display:flex;height:100vh;overflow:hidden}
+.sidebar{width:220px;flex-shrink:0;background:var(--surface);border-right:1px solid var(--border);display:flex;flex-direction:column}
+.sidebar-logo{padding:20px 20px 16px;border-bottom:1px solid var(--border)}
+.logo-mark{display:flex;align-items:center;gap:10px}
+.logo-icon{width:32px;height:32px;background:var(--accent);border-radius:8px;display:flex;align-items:center;justify-content:center;color:white;font-size:16px}
+.logo-text{font-size:15px;font-weight:600;letter-spacing:-0.3px}
+.logo-sub{font-size:11px;color:var(--text3)}
+.sidebar-nav{flex:1;padding:12px 10px;display:flex;flex-direction:column;gap:2px}
+.nav-item{display:flex;align-items:center;gap:10px;padding:8px 10px;border-radius:var(--radius-sm);cursor:pointer;color:var(--text2);font-size:13.5px;font-weight:500;transition:all 0.15s;border:none;background:none;width:100%;text-align:left;font-family:inherit}
+.nav-item:hover{background:var(--surface2);color:var(--text)}
+.nav-item.active{background:var(--accent-light);color:var(--accent)}
+.sidebar-footer{padding:12px 10px;border-top:1px solid var(--border)}
+.main{flex:1;overflow:hidden;display:flex;flex-direction:column}
+.topbar{height:56px;background:var(--surface);border-bottom:1px solid var(--border);display:flex;align-items:center;padding:0 24px;gap:16px;flex-shrink:0}
+.topbar-title{font-size:15px;font-weight:600;flex:1}
+.content{flex:1;overflow-y:auto;padding:24px}
+.view{display:none}.view.active{display:block}
+
+/* ── Buttons ── */
+.btn{display:inline-flex;align-items:center;gap:6px;padding:7px 14px;border-radius:var(--radius-sm);font-family:inherit;font-size:13px;font-weight:500;cursor:pointer;border:none;transition:all 0.15s;white-space:nowrap}
+.btn-primary{background:var(--accent);color:white}.btn-primary:hover{background:#235240}
+.btn-secondary{background:var(--surface);color:var(--text);border:1px solid var(--border)}.btn-secondary:hover{background:var(--surface2)}
+.btn-lg{padding:12px 22px;font-size:15px;border-radius:var(--radius)}
+.btn-sm{padding:5px 10px;font-size:12px}
+
+/* ── Stats ── */
+.stats-grid{display:grid;grid-template-columns:repeat(4,1fr);gap:16px;margin-bottom:28px}
+.stat-card{background:var(--surface);border:1px solid var(--border);border-radius:var(--radius);padding:16px 20px;box-shadow:var(--shadow)}
+.stat-label{font-size:11px;font-weight:600;color:var(--text3);text-transform:uppercase;letter-spacing:0.5px;margin-bottom:6px}
+.stat-value{font-size:28px;font-weight:600;letter-spacing:-0.5px;font-family:'DM Mono',monospace}
+.stat-sub{font-size:11px;color:var(--text3);margin-top:3px}
+.stat-card.highlight{border-color:var(--accent);background:var(--accent-light)}
+.stat-card.highlight .stat-value{color:var(--accent)}
+
+/* ── Scan CTA ── */
+.scan-cta{background:var(--accent);border-radius:var(--radius-lg);padding:28px 32px;color:white;display:flex;align-items:center;gap:24px;margin-bottom:28px;box-shadow:var(--shadow-md)}
+.scan-cta-icon{font-size:40px;flex-shrink:0}
+.scan-cta-text h2{font-size:18px;font-weight:600;margin-bottom:4px}
+.scan-cta-text p{font-size:13px;opacity:0.8;margin-bottom:16px}
+.scan-cta .btn{background:white;color:var(--accent);font-weight:600}
+.scan-cta .btn:hover{background:#f0faf5}
+
+/* ── Latest receipt card ── */
+.latest-card{background:var(--surface);border:1px solid var(--border);border-radius:var(--radius);padding:18px 20px;box-shadow:var(--shadow);margin-bottom:28px}
+.latest-card-header{display:flex;align-items:center;justify-content:space-between;margin-bottom:12px}
+.latest-card-title{font-size:12px;font-weight:600;color:var(--text3);text-transform:uppercase;letter-spacing:0.5px}
+.latest-receipt-row{display:flex;align-items:center;gap:16px;padding:12px 16px;background:var(--bg);border-radius:var(--radius-sm);border:1px solid var(--border);cursor:pointer;transition:all 0.15s}
+.latest-receipt-row:hover{border-color:var(--accent);background:var(--accent-light)}
+.latest-store{font-weight:600;font-size:15px}
+.latest-meta{font-size:12px;color:var(--text2);margin-top:2px}
+.latest-spacer{flex:1}
+.latest-amount{font-family:'DM Mono',monospace;font-size:16px;font-weight:600;color:var(--accent)}
+.latest-arrow{color:var(--text3);font-size:18px}
+
+/* ── Annotation badge (mockup only) ── */
+.annotation{background:#FFF3CD;border:1px dashed #D4A017;border-radius:var(--radius-sm);padding:6px 10px;font-size:11px;color:#7B4F00;display:inline-flex;align-items:center;gap:5px;margin-top:8px}
+.annotation::before{content:'💡 '}
+.section-annotation{background:#FFF3CD;border:1px dashed #D4A017;border-radius:var(--radius-sm);padding:8px 12px;font-size:11px;color:#7B4F00;margin-bottom:12px}
+.section-annotation strong{display:block;margin-bottom:2px}
+
+/* ── Date group (receipts view) ── */
+.date-group{margin-bottom:24px}
+.date-group-header{display:flex;align-items:center;gap:12px;margin-bottom:10px}
+.date-group-label{font-size:12px;font-weight:600;color:var(--text3);text-transform:uppercase;letter-spacing:0.5px}
+.date-group-line{flex:1;height:1px;background:var(--border)}
+.date-group-count{font-size:11px;color:var(--text3)}
+.receipt-list{display:flex;flex-direction:column;gap:6px}
+.receipt-row{background:var(--surface);border:1px solid var(--border);border-radius:var(--radius);padding:12px 18px;display:flex;align-items:center;gap:14px;cursor:pointer;transition:all 0.15s;box-shadow:var(--shadow)}
+.receipt-row:hover{border-color:var(--accent);box-shadow:var(--shadow-md);transform:translateY(-1px)}
+.receipt-store{font-weight:600;font-size:14px;min-width:130px}
+.receipt-items{font-size:12px;color:var(--text2);min-width:60px}
+.receipt-total{font-family:'DM Mono',monospace;font-size:14px;font-weight:500;min-width:75px}
+.receipt-spacer{flex:1}
+.receipt-arrow{color:var(--text3);font-size:16px}
+
+/* ── Badges ── */
+.badge{display:inline-flex;align-items:center;gap:4px;padding:2px 8px;border-radius:20px;font-size:11px;font-weight:600}
+.badge-green{background:var(--success-light);color:var(--success)}
+.badge-yellow{background:var(--warning-light);color:var(--warning)}
+.badge-red{background:var(--danger-light);color:var(--danger)}
+.badge-grey{background:var(--surface2);color:var(--text3)}
+.badge-blue{background:#EBF5FB;color:#2980B9}
+.badge-exported{background:#E8F8F5;color:#1E8449;border:1px solid #27AE60}
+
+/* ── Load-more ── */
+.load-more-zone{text-align:center;padding:20px 0 8px}
+.load-more-hint{font-size:12px;color:var(--text3);margin-top:8px}
+.load-more-spinner{display:none;margin:0 auto 8px;width:24px;height:24px;border:2px solid var(--border);border-top-color:var(--accent);border-radius:50%;animation:spin 0.7s linear infinite}
+@keyframes spin{to{transform:rotate(360deg)}}
+.load-more-zone.loading .load-more-btn{display:none}
+.load-more-zone.loading .load-more-spinner{display:block}
+.end-of-list{text-align:center;padding:20px 0;font-size:12px;color:var(--text3)}
+
+/* ── API callout boxes ── */
+.api-box{border-radius:var(--radius-sm);padding:10px 14px;font-size:12px;font-family:'DM Mono',monospace;margin-top:6px;border:1px solid}
+.api-box-get{background:#EBF5FB;border-color:#AED6F1;color:#1A5276}
+.api-box-new{background:#EAF2EE;border-color:#A9DFBF;color:#1E4D2B}
+.api-tag{display:inline-block;padding:1px 6px;border-radius:3px;font-size:10px;font-weight:700;margin-right:6px;vertical-align:middle}
+.api-tag-get{background:#2980B9;color:white}
+.api-tag-new{background:#27AE60;color:white}
+
+/* ── Mockup header banner ── */
+.mockup-banner{background:#1A1916;color:white;padding:10px 24px;font-size:12px;display:flex;align-items:center;gap:12px;flex-shrink:0}
+.mockup-banner strong{color:#FCD34D}
+.tab-switcher{display:flex;gap:8px;margin-left:auto}
+.tab-btn{padding:4px 12px;border-radius:4px;border:1px solid #444;background:transparent;color:#CCC;font-size:11px;cursor:pointer;font-family:inherit;transition:all 0.15s}
+.tab-btn.active{background:#2A6049;border-color:#2A6049;color:white}
+
+/* ── Empty / loading ── */
+.skeleton{background:linear-gradient(90deg,var(--surface2) 25%,var(--border) 50%,var(--surface2) 75%);background-size:200% 100%;animation:shimmer 1.2s infinite;border-radius:4px;height:13px}
+@keyframes shimmer{0%{background-position:200% 0}100%{background-position:-200% 0}}
+</style>
+</head>
+<body>
+
+<!-- Mockup control bar -->
+<div class="mockup-banner">
+  <strong>MOCKUP</strong>
+  <span style="color:#9CA3AF">Receipt Scanner — UI Redesign · Click the tabs to switch screens</span>
+  <div class="tab-switcher">
+    <button class="tab-btn active" onclick="switchTab('dashboard')">1 · Dashboard</button>
+    <button class="tab-btn" onclick="switchTab('receipts')">2 · Receipts</button>
+    <button class="tab-btn" onclick="switchTab('detail')">3 · Receipt Detail</button>
+  </div>
+</div>
+
+<div class="app">
+  <!-- Sidebar -->
+  <div class="sidebar">
+    <div class="sidebar-logo">
+      <div class="logo-mark">
+        <div class="logo-icon">🧾</div>
+        <div>
+          <div class="logo-text">Receipt Scanner</div>
+          <div class="logo-sub">andreit@gmail.com</div>
+        </div>
+      </div>
+    </div>
+    <div class="sidebar-nav">
+      <button class="nav-item active" id="nav-dashboard" onclick="switchTab('dashboard')"><span>◎</span> Dashboard</button>
+      <button class="nav-item" id="nav-receipts" onclick="switchTab('receipts')"><span>≡</span> Receipts</button>
+      <button class="nav-item" id="nav-expenses" onclick="switchTab('expenses')"><span>💳</span> Expenses</button>
+      <button class="nav-item" id="nav-mappings" onclick="switchTab('mappings')"><span>⊞</span> Mappings</button>
+    </div>
+    <div class="sidebar-footer">
+      <button class="nav-item" style="color:var(--text3);font-size:12px"><span>⏏</span> Sign out</button>
+    </div>
+  </div>
+
+  <!-- Main content -->
+  <div class="main">
+    <div class="topbar">
+      <div class="topbar-title" id="topbar-title">Dashboard</div>
+    </div>
+
+    <div class="content">
+
+      <!-- ═══════════════════════════════════════════════════════════════ -->
+      <!-- VIEW 1: DASHBOARD                                               -->
+      <!-- ═══════════════════════════════════════════════════════════════ -->
+      <div class="view active" id="view-dashboard">
+
+        <div class="section-annotation">
+          <strong>API call on load: <span style="font-family:monospace">GET /receipts/summary</span> — NEW lightweight endpoint</strong>
+          Returns 5 numbers only: total, needs_review, exported, total_spend, latest_receipt. No receipt rows fetched. ~50ms.
+        </div>
+
+        <!-- Stats row -->
+        <div class="stats-grid">
+          <div class="stat-card">
+            <div class="stat-label">Total Receipts</div>
+            <div class="stat-value">47</div>
+            <div class="stat-sub">all time</div>
+          </div>
+          <div class="stat-card" style="border-color:var(--warning);background:var(--warning-light)">
+            <div class="stat-label" style="color:var(--warning)">Needs Review</div>
+            <div class="stat-value" style="color:var(--warning)">3</div>
+            <div class="stat-sub" style="color:var(--warning)">items awaiting confirmation</div>
+          </div>
+          <div class="stat-card" style="border-color:var(--success);background:var(--success-light)">
+            <div class="stat-label" style="color:var(--success)">Exported</div>
+            <div class="stat-value" style="color:var(--success)">44</div>
+            <div class="stat-sub" style="color:var(--success)">in master.xlsx</div>
+          </div>
+          <div class="stat-card highlight">
+            <div class="stat-label">Total Spend</div>
+            <div class="stat-value">£312.40</div>
+            <div class="stat-sub">all scanned receipts</div>
+          </div>
+        </div>
+
+        <!-- Scan CTA -->
+        <div class="scan-cta">
+          <div class="scan-cta-icon">📷</div>
+          <div class="scan-cta-text">
+            <h2>Scan a new receipt</h2>
+            <p>Select a store, take a photo — done in under 10 seconds.</p>
+            <button class="btn" onclick="alert('Upload flow — unchanged from current app')">+ Scan receipt</button>
+          </div>
+        </div>
+
+        <!-- Latest receipt card -->
+        <div class="latest-card">
+          <div class="latest-card-header">
+            <span class="latest-card-title">Latest receipt</span>
+            <button class="btn btn-secondary btn-sm" onclick="switchTab('receipts')">All receipts →</button>
+          </div>
+          <div class="latest-receipt-row" onclick="switchTab('detail')">
+            <div>
+              <div class="latest-store">Tesco</div>
+              <div class="latest-meta">Today, 09 Mar 2026 · 12 items</div>
+            </div>
+            <div class="latest-spacer"></div>
+            <div>
+              <span class="badge badge-exported">📊 In Excel</span>
+            </div>
+            <div class="latest-amount">£28.54</div>
+            <div class="latest-arrow">›</div>
+          </div>
+          <div class="annotation">One item from today's Tesco receipt was updated — tap to review</div>
+        </div>
+
+        <div class="section-annotation" style="margin-top:0">
+          <strong>What changed vs current dashboard:</strong>
+          • Removed: receipt list on dashboard (was fetching ALL receipts just to show 6 rows)<br>
+          • Added: prominent "Scan receipt" CTA — first thing you see after login<br>
+          • Added: "Latest receipt" card driven by <code>/receipts/summary</code> response (just one record)<br>
+          • Stats are now from the summary endpoint — zero receipt rows transferred
+        </div>
+      </div>
+
+      <!-- ═══════════════════════════════════════════════════════════════ -->
+      <!-- VIEW 2: RECEIPTS (date-grouped, paginated)                      -->
+      <!-- ═══════════════════════════════════════════════════════════════ -->
+      <div class="view" id="view-receipts">
+
+        <div class="section-annotation">
+          <strong>API calls: paginated by date, 3 days per page</strong>
+          Initial load: <span style="font-family:monospace">GET /receipts?days=3</span> (last 3 days). Scroll to bottom → <span style="font-family:monospace">GET /receipts?before=2026-03-07&days=3</span>. Never fetches all receipts at once.
+        </div>
+
+        <!-- Day 1 -->
+        <div class="date-group">
+          <div class="date-group-header">
+            <span class="date-group-label">Today — Mon 09 Mar 2026</span>
+            <div class="date-group-line"></div>
+            <span class="date-group-count">2 receipts</span>
+          </div>
+          <div class="receipt-list">
+            <div class="receipt-row" onclick="switchTab('detail')">
+              <div class="receipt-store">Tesco</div>
+              <div class="receipt-items">12 items</div>
+              <div class="receipt-total">£28.54</div>
+              <div class="receipt-spacer"></div>
+              <span class="badge badge-exported">📊 In Excel</span>
+              <div class="receipt-arrow">›</div>
+            </div>
+            <div class="receipt-row">
+              <div class="receipt-store">Lidl</div>
+              <div class="receipt-items">7 items</div>
+              <div class="receipt-total">£14.20</div>
+              <div class="receipt-spacer"></div>
+              <span class="badge badge-yellow">● Needs review</span>
+              <div class="receipt-arrow">›</div>
+            </div>
+          </div>
+        </div>
+
+        <!-- Day 2 -->
+        <div class="date-group">
+          <div class="date-group-header">
+            <span class="date-group-label">Sun 08 Mar 2026</span>
+            <div class="date-group-line"></div>
+            <span class="date-group-count">1 receipt</span>
+          </div>
+          <div class="receipt-list">
+            <div class="receipt-row">
+              <div class="receipt-store">Iceland</div>
+              <div class="receipt-items">9 items</div>
+              <div class="receipt-total">£22.10</div>
+              <div class="receipt-spacer"></div>
+              <span class="badge badge-exported">📊 In Excel</span>
+              <div class="receipt-arrow">›</div>
+            </div>
+          </div>
+        </div>
+
+        <!-- Day 3 -->
+        <div class="date-group">
+          <div class="date-group-header">
+            <span class="date-group-label">Fri 07 Mar 2026</span>
+            <div class="date-group-line"></div>
+            <span class="date-group-count">3 receipts</span>
+          </div>
+          <div class="receipt-list">
+            <div class="receipt-row">
+              <div class="receipt-store">Sainsbury's</div>
+              <div class="receipt-items">5 items</div>
+              <div class="receipt-total">£11.30</div>
+              <div class="receipt-spacer"></div>
+              <span class="badge badge-exported">📊 In Excel</span>
+              <div class="receipt-arrow">›</div>
+            </div>
+            <div class="receipt-row">
+              <div class="receipt-store">Aldi</div>
+              <div class="receipt-items">15 items</div>
+              <div class="receipt-total">£31.75</div>
+              <div class="receipt-spacer"></div>
+              <span class="badge badge-green">● Complete</span>
+              <div class="receipt-arrow">›</div>
+            </div>
+            <div class="receipt-row">
+              <div class="receipt-store">Tesco Express</div>
+              <div class="receipt-items">3 items</div>
+              <div class="receipt-total">£6.40</div>
+              <div class="receipt-spacer"></div>
+              <span class="badge badge-exported">📊 In Excel</span>
+              <div class="receipt-arrow">›</div>
+            </div>
+          </div>
+        </div>
+
+        <!-- Load more zone — shown at bottom, triggered by scroll or button -->
+        <div class="load-more-zone" id="load-more-zone">
+          <div class="load-more-spinner" id="load-spinner"></div>
+          <button class="btn btn-secondary" id="load-more-btn" onclick="simulateLoadMore()">Load earlier receipts</button>
+          <div class="load-more-hint">Showing last 3 days · 6 of 47 receipts</div>
+        </div>
+        <div class="end-of-list" id="end-of-list" style="display:none">— You've reached the beginning —</div>
+
+        <div class="section-annotation" style="margin-top:16px">
+          <strong>What changed vs current receipts view:</strong>
+          • Removed: load all receipts upfront (was fetching everything just to show a flat list)<br>
+          • Added: date-grouped layout — easier to find "what did I buy last Tuesday"<br>
+          • Added: infinite scroll — backend called with <code>before=&lt;date&gt;&days=3</code> cursor, returns next 3 days + next cursor<br>
+          • No date column per row — it's implied by the group header (cleaner, less noise)
+        </div>
+      </div>
+
+      <!-- ═══════════════════════════════════════════════════════════════ -->
+      <!-- VIEW 3: RECEIPT DETAIL (unchanged, shown for context)           -->
+      <!-- ═══════════════════════════════════════════════════════════════ -->
+      <div class="view" id="view-detail">
+        <button class="btn btn-secondary btn-sm" onclick="switchTab('receipts')" style="margin-bottom:16px">← Back to receipts</button>
+
+        <div class="section-annotation">
+          <strong>API call: <span style="font-family:monospace">GET /receipts/{id}</span> — unchanged</strong>
+          Opens when tapped from receipts list or dashboard "Latest receipt" card. Full receipt + items fetched here only.
+        </div>
+
+        <div style="display:flex;align-items:flex-start;justify-content:space-between;flex-wrap:wrap;gap:12px;margin-bottom:16px">
+          <div>
+            <div style="font-size:22px;font-weight:600;letter-spacing:-0.4px;margin-bottom:4px">Tesco</div>
+            <div style="display:flex;gap:16px;font-size:13px;color:var(--text2);flex-wrap:wrap">
+              <span>09 Mar 2026</span>
+              <span>12 items</span>
+              <span style="font-family:'DM Mono',monospace;font-weight:500;color:var(--text)">£28.54</span>
+              <span class="badge badge-exported">📊 In Excel</span>
+            </div>
+          </div>
+          <div style="display:flex;gap:8px;flex-wrap:wrap">
+            <button class="btn btn-secondary btn-sm">↺ Re-export</button>
+            <button class="btn btn-secondary btn-sm" style="color:var(--danger)">✕ Delete</button>
+          </div>
+        </div>
+
+        <div style="background:var(--success-light);border:1px solid #A9DFBF;border-radius:var(--radius-sm);padding:10px 14px;font-size:13px;color:var(--success);display:flex;align-items:center;gap:8px;margin-bottom:16px">
+          ✓ Exported to master.xlsx on 09 Mar 2026 at 09:41
+        </div>
+
+        <table style="width:100%;border-collapse:separate;border-spacing:0;background:var(--surface);border:1px solid var(--border);border-radius:var(--radius);overflow:hidden;box-shadow:var(--shadow)">
+          <thead>
+            <tr style="background:var(--surface2)">
+              <th style="padding:10px 14px;font-size:11px;font-weight:600;color:var(--text3);text-transform:uppercase;letter-spacing:0.4px;border-bottom:1px solid var(--border);text-align:left">Item</th>
+              <th style="padding:10px 14px;font-size:11px;font-weight:600;color:var(--text3);text-transform:uppercase;letter-spacing:0.4px;border-bottom:1px solid var(--border);text-align:left">Type</th>
+              <th style="padding:10px 14px;font-size:11px;font-weight:600;color:var(--text3);text-transform:uppercase;letter-spacing:0.4px;border-bottom:1px solid var(--border);text-align:left">Category</th>
+              <th style="padding:10px 14px;font-size:11px;font-weight:600;color:var(--text3);text-transform:uppercase;letter-spacing:0.4px;border-bottom:1px solid var(--border);text-align:right">Price</th>
+            </tr>
+          </thead>
+          <tbody>
+            <tr><td style="padding:11px 14px;border-bottom:1px solid var(--border);font-size:13px">Whole Milk 2L</td><td style="padding:11px 14px;border-bottom:1px solid var(--border);font-size:13px">dairy</td><td style="padding:11px 14px;border-bottom:1px solid var(--border);font-size:13px">Dairy &amp; Eggs</td><td style="padding:11px 14px;border-bottom:1px solid var(--border);font-size:13px;text-align:right;font-family:'DM Mono',monospace">£1.45</td></tr>
+            <tr><td style="padding:11px 14px;border-bottom:1px solid var(--border);font-size:13px">Chicken Breast 500g</td><td style="padding:11px 14px;border-bottom:1px solid var(--border);font-size:13px">chicken</td><td style="padding:11px 14px;border-bottom:1px solid var(--border);font-size:13px">Meat &amp; Fish</td><td style="padding:11px 14px;border-bottom:1px solid var(--border);font-size:13px;text-align:right;font-family:'DM Mono',monospace">£4.50</td></tr>
+            <tr style="background:#FFFBEB"><td style="padding:11px 14px;border-bottom:1px solid var(--border);font-size:13px">🔍 STIR FRY VEG</td><td style="padding:11px 14px;border-bottom:1px solid var(--border);font-size:13px"><span style="color:var(--warning)">needs review</span></td><td style="padding:11px 14px;border-bottom:1px solid var(--border);font-size:13px"><span style="color:var(--warning)">? Vegetables</span></td><td style="padding:11px 14px;border-bottom:1px solid var(--border);font-size:13px;text-align:right;font-family:'DM Mono',monospace">£2.00</td></tr>
+            <tr><td style="padding:11px 14px;font-size:13px;border-bottom:1px solid var(--border)">Sourdough Bread</td><td style="padding:11px 14px;font-size:13px;border-bottom:1px solid var(--border)">bread</td><td style="padding:11px 14px;font-size:13px;border-bottom:1px solid var(--border)">Bakery</td><td style="padding:11px 14px;font-size:13px;border-bottom:1px solid var(--border);text-align:right;font-family:'DM Mono',monospace">£2.00</td></tr>
+            <tr><td style="padding:11px 14px;font-size:13px" colspan="3" style="text-align:right;color:var(--text3)">… 8 more items</td><td style="padding:11px 14px;font-size:13px;text-align:right;font-family:'DM Mono',monospace;font-weight:600">£28.54</td></tr>
+          </tbody>
+        </table>
+
+        <div class="section-annotation" style="margin-top:16px">
+          <strong>Receipt detail: unchanged from current implementation.</strong>
+          Only loaded on demand (tap from list or dashboard). Fetches full items for this one receipt only.
+        </div>
+      </div>
+
+    </div><!-- /content -->
+  </div><!-- /main -->
+</div><!-- /app -->
+
+<!-- ═══════════════════════════════════════════════════ -->
+<!-- PROPOSED API CHANGES PANEL (fixed bottom bar)      -->
+<!-- ═══════════════════════════════════════════════════ -->
+<div style="position:fixed;bottom:0;left:0;right:0;background:#1A1916;border-top:2px solid #2A6049;padding:12px 24px;display:flex;gap:24px;flex-wrap:wrap;align-items:center">
+  <span style="color:#9CA3AF;font-size:11px;font-weight:600;text-transform:uppercase;letter-spacing:0.5px;flex-shrink:0">Proposed API changes:</span>
+  <div style="font-size:11px;font-family:'DM Mono',monospace;color:#D1FAE5"><span style="background:#27AE60;color:white;padding:1px 5px;border-radius:3px;margin-right:5px;font-size:10px">NEW</span>GET /receipts/summary → {total, needs_review, exported, total_spend, latest_receipt}</div>
+  <div style="font-size:11px;font-family:'DM Mono',monospace;color:#BFDBFE"><span style="background:#2980B9;color:white;padding:1px 5px;border-radius:3px;margin-right:5px;font-size:10px">MOD</span>GET /receipts?days=3 → first page (no cursor) — returns receipts + next_cursor date</div>
+  <div style="font-size:11px;font-family:'DM Mono',monospace;color:#BFDBFE"><span style="background:#2980B9;color:white;padding:1px 5px;border-radius:3px;margin-right:5px;font-size:10px">MOD</span>GET /receipts?before=2026-03-07&days=3 → next page (scroll pagination)</div>
+  <div style="font-size:11px;font-family:'DM Mono',monospace;color:#FEF9C3"><span style="background:#D97706;color:white;padding:1px 5px;border-radius:3px;margin-right:5px;font-size:10px">DEL</span>GET /receipts (no params) — never fetches unbounded list again</div>
+</div>
+
+<script>
+function switchTab(name) {
+  ['dashboard','receipts','detail','expenses','mappings'].forEach(v => {
+    const el = document.getElementById('view-'+v);
+    const nav = document.getElementById('nav-'+v);
+    if (el) el.classList.remove('active');
+    if (nav) nav.classList.remove('active');
+  });
+  document.querySelectorAll('.tab-btn').forEach(b => b.classList.remove('active'));
+
+  const view = document.getElementById('view-'+name);
+  if (view) view.classList.add('active');
+  const nav = document.getElementById('nav-'+name);
+  if (nav) nav.classList.add('active');
+
+  const tabNames = {'dashboard':'1 · Dashboard','receipts':'2 · Receipts','detail':'3 · Receipt Detail'};
+  document.querySelectorAll('.tab-btn').forEach(b => {
+    if (b.textContent.includes(tabNames[name]?.split('·')[1]?.trim() || name)) b.classList.add('active');
+  });
+
+  const titles = {dashboard:'Dashboard',receipts:'Receipts',detail:'Receipt Detail',expenses:'Expenses',mappings:'Item Mappings'};
+  document.getElementById('topbar-title').textContent = titles[name] || name;
+}
+
+// Fix tab-btn active on click
+document.querySelectorAll('.tab-btn').forEach(b => {
+  b.addEventListener('click', function() {
+    document.querySelectorAll('.tab-btn').forEach(x => x.classList.remove('active'));
+    this.classList.add('active');
+  });
+});
+
+let loadCount = 0;
+const fakeOlderDays = [
+  { label: 'Wed 05 Mar 2026', count: 2, receipts: [
+    { store: 'Morrisons', items: 8, total: '£19.20', badge: '<span class="badge badge-exported">📊 In Excel</span>' },
+    { store: 'Waitrose', items: 11, total: '£45.60', badge: '<span class="badge badge-exported">📊 In Excel</span>' }
+  ]},
+  { label: 'Mon 03 Mar 2026', count: 1, receipts: [
+    { store: 'Aldi', items: 14, total: '£27.10', badge: '<span class="badge badge-green">● Complete</span>' }
+  ]},
+  { label: 'Sat 01 Mar 2026', count: 3, receipts: [
+    { store: 'Tesco', items: 6, total: '£15.30', badge: '<span class="badge badge-exported">📊 In Excel</span>' },
+    { store: 'Lidl', items: 10, total: '£23.45', badge: '<span class="badge badge-exported">📊 In Excel</span>' },
+    { store: 'Iceland', items: 4, total: '£9.80', badge: '<span class="badge badge-exported">📊 In Excel</span>' }
+  ]}
+];
+
+function simulateLoadMore() {
+  const zone = document.getElementById('load-more-zone');
+  zone.classList.add('loading');
+
+  setTimeout(() => {
+    zone.classList.remove('loading');
+
+    if (loadCount >= fakeOlderDays.length) {
+      zone.style.display = 'none';
+      document.getElementById('end-of-list').style.display = 'block';
+      return;
+    }
+
+    const data = fakeOlderDays[loadCount++];
+    const group = document.createElement('div');
+    group.className = 'date-group';
+    group.innerHTML = `
+      <div class="date-group-header">
+        <span class="date-group-label">${data.label}</span>
+        <div class="date-group-line"></div>
+        <span class="date-group-count">${data.count} receipt${data.count>1?'s':''}</span>
+      </div>
+      <div class="receipt-list">
+        ${data.receipts.map(r => `
+          <div class="receipt-row">
+            <div class="receipt-store">${r.store}</div>
+            <div class="receipt-items">${r.items} items</div>
+            <div class="receipt-total">${r.total}</div>
+            <div class="receipt-spacer"></div>
+            ${r.badge}
+            <div class="receipt-arrow">›</div>
+          </div>`).join('')}
+      </div>`;
+
+    zone.parentNode.insertBefore(group, zone);
+
+    // Update hint
+    const hint = zone.querySelector('.load-more-hint');
+    const total = 6 + fakeOlderDays.slice(0, loadCount).reduce((s,d)=>s+d.count, 0);
+    hint.textContent = `Showing last ${3 + loadCount * 3} days · ${total} of 47 receipts`;
+
+    if (loadCount >= fakeOlderDays.length) {
+      zone.style.display = 'none';
+      document.getElementById('end-of-list').style.display = 'block';
+    }
+  }, 600);
+}
+</script>
+</body>
+</html>

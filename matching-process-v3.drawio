@@ -1,0 +1,229 @@
+<mxfile host="app.diagrams.net" version="29.6.0">
+  <diagram id="proc_v2" name="Matching Process v2">
+    <mxGraphModel dx="1200" dy="800" grid="1" gridSize="10" guides="1"
+      tooltips="1" connect="1" arrows="1" fold="1" page="1" pageScale="1"
+      pageWidth="1400" pageHeight="1500" math="0" shadow="0">
+      <root>
+        <mxCell id="0" />
+        <mxCell id="1" parent="0" />
+
+        <!-- Title -->
+        <mxCell id="title" parent="1" vertex="1"
+          style="rounded=1;fillColor=#1A237E;strokeColor=#1A237E;fontColor=#FFFFFF;fontSize=15;fontStyle=1;align=center;"
+          value="Category Matching Process v3 — 3 Layers (Layer 2 Global Exact removed)">
+          <mxGeometry x="50" y="20" width="1000" height="40" as="geometry" />
+        </mxCell>
+
+        <!-- Two-hop note -->
+        <mxCell id="twohop" parent="1" vertex="1"
+          style="rounded=1;fillColor=#E3F2FD;strokeColor=#1565C0;fontColor=#0D47A1;fontSize=10;align=left;spacingLeft=6;"
+          value="KEY CONCEPT — Two-Hop Chain&#xa;──────────────────────────────────────────&#xa;Hop 1: OCR string → item_type_id  (MappingsTable)&#xa;Hop 2: item_type_id → category_id  (ItemTypes table)&#xa;&#xa;Changing item_type → category in the ItemTypes table&#xa;retroactively updates ALL past receipts automatically.&#xa;Category is NEVER stored on line items — always derived.">
+          <mxGeometry x="720" y="80" width="330" height="120" as="geometry" />
+        </mxCell>
+
+        <!-- START -->
+        <mxCell id="start" parent="1" vertex="1"
+          style="rounded=1;fillColor=#E8EAF6;strokeColor=#3949AB;fontColor=#1A237E;fontSize=11;align=center;"
+          value="Item name extracted by Textract&#xa;e.g.  SUCKIES APRICOT 90G">
+          <mxGeometry x="260" y="80" width="280" height="50" as="geometry" />
+        </mxCell>
+
+        <!-- NORMALISE -->
+        <mxCell id="norm" parent="1" vertex="1"
+          style="rounded=1;fillColor=#F3E5F5;strokeColor=#8E24AA;fontColor=#4A148C;fontSize=10;align=left;spacingLeft=6;"
+          value="NORMALISE&#xa;──────────────────────────────&#xa;Strip store brand prefix (e.g. Tesco Finest)&#xa;Remove weight / size  (e.g. 90g, 4pk, 200ml)&#xa;Lowercase + trim&#xa;Result: &quot;suckies apricot&quot;">
+          <mxGeometry x="260" y="160" width="280" height="70" as="geometry" />
+        </mxCell>
+        <mxCell id="a_start_norm" parent="1" edge="1" source="start" target="norm"
+          style="edgeStyle=orthogonalEdgeStyle;strokeColor=#3949AB;strokeWidth=2;">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+
+        <!-- LAYER 1 -->
+        <mxCell id="d_l1" parent="1" vertex="1"
+          style="rhombus;fillColor=#F3E5F5;strokeColor=#8E24AA;fontSize=11;fontStyle=1;align=center;"
+          value="Layer 1&#xa;Seen this at this store?">
+          <mxGeometry x="300" y="270" width="200" height="80" as="geometry" />
+        </mxCell>
+        <mxCell id="n_l1" parent="1" vertex="1"
+          style="text;html=1;strokeColor=#8E24AA;fillColor=#F9F0FF;align=left;fontSize=9;spacingLeft=6;rounded=1;"
+          value="&#x1F5C4;&#xFE0F; grocery-mappings&#xa;────────────────────&#xa;Key: [store]#[normalised_name]&#xa;Value: item_type_id&#xa;e.g. tesco#suckies apricot&#xa;     → yoghurt">
+          <mxGeometry x="40" y="265" width="210" height="80" as="geometry" />
+        </mxCell>
+        <mxCell id="hit_l1" parent="1" vertex="1"
+          style="rounded=1;fillColor=#E8F5E9;strokeColor=#2E7D32;fontColor=#1B5E20;fontSize=10;align=left;spacingLeft=6;"
+          value="&#x2705; HIT — item_type resolved&#xa;→ 2nd hop: ItemTypes table&#xa;  item_type → category&#xa;confidence = 1.0, no review">
+          <mxGeometry x="760" y="268" width="220" height="66" as="geometry" />
+        </mxCell>
+        <mxCell id="a_norm_l1" parent="1" edge="1" source="norm" target="d_l1"
+          style="edgeStyle=orthogonalEdgeStyle;strokeColor=#8E24AA;strokeWidth=2;">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+        <mxCell id="a_l1_hit" parent="1" edge="1" source="d_l1" target="hit_l1"
+          style="edgeStyle=orthogonalEdgeStyle;strokeColor=#2E7D32;strokeWidth=2;exitX=1;exitY=0.5;exitDx=0;exitDy=0;entryX=0;entryY=0.5;entryDx=0;entryDy=0;">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+        <mxCell connectable="0" parent="a_l1_hit" vertex="1"
+          style="edgeLabel;fontSize=9;fontColor=#2E7D32;" value="HIT ✓">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+
+        <!-- LAYER 2 -->
+<mxCell connectable="0" parent="a_l1_l2" vertex="1"
+          style="edgeLabel;fontSize=9;fontColor=#8E24AA;" value="MISS ↓">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+<mxCell connectable="0" parent="a_l2_hit" vertex="1"
+          style="edgeLabel;fontSize=9;fontColor=#2E7D32;" value="HIT ✓">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+
+        <!-- LAYER 3 -->
+        <mxCell id="d_l3" parent="1" vertex="1"
+          style="rhombus;fillColor=#E3F2FD;strokeColor=#1565C0;fontSize=11;fontStyle=1;align=center;"
+          value="Layer 2&#xa;Fuzzy match score?">
+          <mxGeometry x="300" y="540" width="200" height="80" as="geometry" />
+        </mxCell>
+        <mxCell id="n_l3" parent="1" vertex="1"
+          style="text;html=1;strokeColor=#1565C0;fillColor=#E3F2FD;align=left;fontSize=9;spacingLeft=6;rounded=1;"
+          value="In-memory item_type names (600 keywords)&#xa;────────────────────&#xa;RapidFuzz token_sort_ratio&#xa;Handles OCR noise:&#xa;  0→O,  1→I,  rn→m&#xa;WHY: Textract abbreviates&#xa;and garbles text often">
+          <mxGeometry x="40" y="533" width="210" height="94" as="geometry" />
+        </mxCell>
+        <mxCell id="hit_l3a" parent="1" vertex="1"
+          style="rounded=1;fillColor=#E8F5E9;strokeColor=#2E7D32;fontColor=#1B5E20;fontSize=9;align=left;spacingLeft=6;"
+          value="&#x2705; &#x2265;92% — auto silently&#xa;Write to Layer 1 for next receipt.">
+          <mxGeometry x="760" y="528" width="220" height="46" as="geometry" />
+        </mxCell>
+        <mxCell id="hit_l3b" parent="1" vertex="1"
+          style="rounded=1;fillColor=#FFF9C4;strokeColor=#F9A825;fontColor=#5D4037;fontSize=9;align=left;spacingLeft=6;"
+          value="&#x26A0; 75–91% — auto + flag review&#xa;User confirms → promoted to trusted">
+          <mxGeometry x="760" y="578" width="220" height="46" as="geometry" />
+        </mxCell>
+        <mxCell id="hit_l3c" parent="1" vertex="1"
+          style="rounded=1;fillColor=#FFF3E0;strokeColor=#E65100;fontColor=#BF360C;fontSize=9;align=left;spacingLeft=6;"
+          value="&#x26A0; 50–74% — best guess + flag review&#xa;User must confirm before export">
+          <mxGeometry x="760" y="628" width="220" height="46" as="geometry" />
+        </mxCell>
+<mxCell connectable="0" parent="a_l2_l3" vertex="1"
+          style="edgeLabel;fontSize=9;fontColor=#2E7D32;" value="MISS ↓">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+        <mxCell id="a_l3_92" parent="1" edge="1" source="d_l3" target="hit_l3a"
+          style="edgeStyle=orthogonalEdgeStyle;strokeColor=#2E7D32;strokeWidth=2;exitX=1;exitY=0.5;exitDx=0;exitDy=0;entryX=0;entryY=0.5;entryDx=0;entryDy=0;">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+        <mxCell connectable="0" parent="a_l3_92" vertex="1"
+          style="edgeLabel;fontSize=9;fontColor=#2E7D32;" value="&#x2265;92%">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+        <mxCell id="a_l3_75" parent="1" edge="1" source="d_l3" target="hit_l3b"
+          style="edgeStyle=orthogonalEdgeStyle;strokeColor=#F9A825;strokeWidth=2;exitX=1;exitY=0.5;exitDx=0;exitDy=0;entryX=0;entryY=0.5;entryDx=0;entryDy=0;">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+        <mxCell connectable="0" parent="a_l3_75" vertex="1"
+          style="edgeLabel;fontSize=9;fontColor=#F9A825;" value="75–91%">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+        <mxCell id="a_l3_50" parent="1" edge="1" source="d_l3" target="hit_l3c"
+          style="edgeStyle=orthogonalEdgeStyle;strokeColor=#E65100;strokeWidth=2;exitX=1;exitY=0.5;exitDx=0;exitDy=0;entryX=0;entryY=0.5;entryDx=0;entryDy=0;">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+        <mxCell connectable="0" parent="a_l3_50" vertex="1"
+          style="edgeLabel;fontSize=9;fontColor=#E65100;" value="50–74%">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+
+        <!-- LAYER 4 — UNKNOWN -->
+        <mxCell id="l4" parent="1" vertex="1"
+          style="rounded=1;fillColor=#FFCDD2;strokeColor=#E53935;fontColor=#B71C1C;fontSize=11;fontStyle=1;align=center;"
+          value="Layer 3 — UNKNOWN&#xa;Nothing matched above 50%&#xa;Flag for manual review">
+          <mxGeometry x="260" y="700" width="280" height="60" as="geometry" />
+        </mxCell>
+        <mxCell id="a_l3_l4" parent="1" edge="1" source="d_l3" target="l4"
+          style="edgeStyle=orthogonalEdgeStyle;strokeColor=#E53935;strokeWidth=2;exitX=0.5;exitY=1;exitDx=0;exitDy=0;entryX=0.5;entryY=0;entryDx=0;entryDy=0;">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+        <mxCell connectable="0" parent="a_l3_l4" vertex="1"
+          style="edgeLabel;fontSize=9;fontColor=#E53935;" value="&lt;50% ↓">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+
+        <!-- USER REVIEW SCREEN -->
+        <mxCell id="review" parent="1" vertex="1"
+          style="rounded=1;fillColor=#FFF3E0;strokeColor=#E65100;fontColor=#BF360C;fontSize=10;align=left;spacingLeft=6;"
+          value="USER REVIEW SCREEN&#xa;──────────────────────────────&#xa;&#x1F4F8; Scanned receipt image shown alongside&#xa;&#x1F4CB; Item list with OCR text highlighted&#xa;User picks item_type from curated list&#xa;  (yoghurt, butter, smoked salmon...)&#xa;item_type → category resolved automatically">
+          <mxGeometry x="260" y="810" width="280" height="90" as="geometry" />
+        </mxCell>
+        <mxCell id="a_l4_review" parent="1" edge="1" source="l4" target="review"
+          style="edgeStyle=orthogonalEdgeStyle;strokeColor=#E53935;strokeWidth=2;exitX=0.5;exitY=1;exitDx=0;exitDy=0;entryX=0.5;entryY=0;entryDx=0;entryDy=0;">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+
+        <!-- SAVE CORRECTION -->
+        <mxCell id="save" parent="1" vertex="1"
+          style="rounded=1;fillColor=#E8F5E9;strokeColor=#2E7D32;fontColor=#1B5E20;fontSize=10;align=left;spacingLeft=6;"
+          value="SAVE CORRECTION&#xa;──────────────────────────────&#xa;Write [store]#[normalised] → item_type_id&#xa;  to MappingsTable  (Layer 1 learns)&#xa;Category NOT stored on item — derived&#xa;  from ItemTypes table at query time&#xa;  → past receipts auto-update when&#xa;    you change item_type → category">
+          <mxGeometry x="260" y="950" width="280" height="90" as="geometry" />
+        </mxCell>
+        <mxCell id="a_review_save" parent="1" edge="1" source="review" target="save"
+          style="edgeStyle=orthogonalEdgeStyle;strokeColor=#E65100;strokeWidth=2;exitX=0.5;exitY=1;exitDx=0;exitDy=0;entryX=0.5;entryY=0;entryDx=0;entryDy=0;">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+
+        <!-- DONE -->
+        <mxCell id="done" parent="1" vertex="1"
+          style="rounded=1;fillColor=#1B5E20;strokeColor=#1B5E20;fontColor=#FFFFFF;fontSize=11;fontStyle=1;align=center;"
+          value="&#x2705; Item categorised — ready for Excel export">
+          <mxGeometry x="260" y="1090" width="280" height="44" as="geometry" />
+        </mxCell>
+        <mxCell id="a_save_done" parent="1" edge="1" source="save" target="done"
+          style="edgeStyle=orthogonalEdgeStyle;strokeColor=#2E7D32;strokeWidth=2;exitX=0.5;exitY=1;exitDx=0;exitDy=0;entryX=0.5;entryY=0;entryDx=0;entryDy=0;">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+
+        <!-- Route all HIT paths to done -->
+        <mxCell id="a_hit_l1_done" parent="1" edge="1" source="hit_l1" target="done"
+          style="edgeStyle=orthogonalEdgeStyle;strokeColor=#2E7D32;strokeWidth=2;exitX=1;exitY=0.5;exitDx=0;exitDy=0;entryX=1;entryY=0.5;entryDx=0;entryDy=0;">
+          <mxGeometry relative="1" as="geometry">
+            <Array as="points"><mxPoint x="1060" y="301" /><mxPoint x="1060" y="1112" /></Array>
+          </mxGeometry>
+        </mxCell>
+<mxCell id="a_hit_l3a_done" parent="1" edge="1" source="hit_l3a" target="done"
+          style="edgeStyle=orthogonalEdgeStyle;strokeColor=#2E7D32;strokeWidth=2;exitX=1;exitY=0.5;exitDx=0;exitDy=0;entryX=1;entryY=0.5;entryDx=0;entryDy=0;">
+          <mxGeometry relative="1" as="geometry">
+            <Array as="points"><mxPoint x="1060" y="551" /><mxPoint x="1060" y="1112" /></Array>
+          </mxGeometry>
+        </mxCell>
+        <mxCell id="a_hit_l3b_done" parent="1" edge="1" source="hit_l3b" target="done"
+          style="edgeStyle=orthogonalEdgeStyle;strokeColor=#2E7D32;strokeWidth=2;exitX=1;exitY=0.5;exitDx=0;exitDy=0;entryX=1;entryY=0.5;entryDx=0;entryDy=0;">
+          <mxGeometry relative="1" as="geometry">
+            <Array as="points"><mxPoint x="1060" y="601" /><mxPoint x="1060" y="1112" /></Array>
+          </mxGeometry>
+        </mxCell>
+        <mxCell id="a_hit_l3c_done" parent="1" edge="1" source="hit_l3c" target="done"
+          style="edgeStyle=orthogonalEdgeStyle;strokeColor=#2E7D32;strokeWidth=2;exitX=1;exitY=0.5;exitDx=0;exitDy=0;entryX=1;entryY=0.5;entryDx=0;entryDy=0;">
+          <mxGeometry relative="1" as="geometry">
+            <Array as="points"><mxPoint x="1060" y="651" /><mxPoint x="1060" y="1112" /></Array>
+          </mxGeometry>
+        </mxCell>
+
+        <!-- Mapping Management note -->
+        <mxCell id="mgmt_note" parent="1" vertex="1"
+          style="rounded=1;fillColor=#E3F2FD;strokeColor=#1565C0;fontColor=#0D47A1;fontSize=10;align=left;spacingLeft=6;"
+          value="MAPPING MANAGEMENT  (separate screen)&#xa;──────────────────────────────&#xa;View / edit item_type → category&#xa;e.g. change yoghurt → dairy to → breakfast&#xa;ALL past items auto-show new category&#xa;Create new item_types &amp; categories">
+          <mxGeometry x="700" y="950" width="280" height="90" as="geometry" />
+        </mxCell>
+
+      
+        <mxCell id="a_l1_l3" parent="1" edge="1" source="d_l1" target="d_l3"
+          style="edgeStyle=orthogonalEdgeStyle;strokeColor=#8E24AA;strokeWidth=2;exitX=0.5;exitY=1;exitDx=0;exitDy=0;entryX=0.5;entryY=0;entryDx=0;entryDy=0;">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+        <mxCell connectable="0" parent="a_l1_l3" vertex="1"
+          style="edgeLabel;fontSize=9;fontColor=#8E24AA;" value="MISS ↓">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+      </root>
+    </mxGraphModel>
+  </diagram>
+</mxfile>

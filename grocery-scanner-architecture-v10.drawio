@@ -1,0 +1,319 @@
+<mxfile host="app.diagrams.net" modified="2026-04-11" version="21.0.0">
+  <diagram name="Grocery Scanner v10 — Finance Email Integration" id="finance-v10">
+    <mxGraphModel dx="1400" dy="900" grid="1" gridSize="10" guides="1" tooltips="1" connect="1" arrows="1" fold="1" page="1" pageScale="1" pageWidth="1654" pageHeight="1500" math="0" shadow="0">
+      <root>
+        <mxCell id="0" />
+        <mxCell id="1" parent="0" />
+
+        <!-- TITLE -->
+        <mxCell id="title" value="Grocery Receipt Scanner v10 — Finance Email &amp; Multi-Source Integration" style="text;html=1;strokeColor=none;fillColor=none;align=left;verticalAlign=middle;whiteSpace=wrap;rounded=0;fontSize=18;fontStyle=1;fontColor=#1A1916;" vertex="1" parent="1">
+          <mxGeometry x="40" y="20" width="1000" height="40" as="geometry" />
+        </mxCell>
+        <mxCell id="subtitle" value="New in v10: Gmail email ingestion · OpenAI gpt-4o-mini extraction · FinanceTransactionsTable · Multi-source matching · Finance dashboard · Auto-regenerating finance.xlsx" style="text;html=1;strokeColor=none;fillColor=none;align=left;verticalAlign=middle;whiteSpace=wrap;rounded=0;fontSize=12;fontColor=#6B6860;" vertex="1" parent="1">
+          <mxGeometry x="40" y="55" width="1000" height="24" as="geometry" />
+        </mxCell>
+
+        <!-- LEGEND -->
+        <mxCell id="legend-new10" value="New in v10" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#E8F4FD;strokeColor=#1B6CA8;fontColor=#1B6CA8;fontSize=11;fontStyle=1;" vertex="1" parent="1">
+          <mxGeometry x="1590" y="20" width="100" height="30" as="geometry" />
+        </mxCell>
+        <mxCell id="legend-new" value="New in v9" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#F0EBFF;strokeColor=#6C3CE1;fontColor=#4a2fa0;fontSize=11;fontStyle=1;" vertex="1" parent="1">
+          <mxGeometry x="1480" y="20" width="100" height="30" as="geometry" />
+        </mxCell>
+        <mxCell id="legend-exist" value="Existing" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#EAF2EE;strokeColor=#2A6049;fontColor=#2A6049;fontSize=11;fontStyle=1;" vertex="1" parent="1">
+          <mxGeometry x="1370" y="20" width="100" height="30" as="geometry" />
+        </mxCell>
+
+        <!-- ═══════════════════════════════════════════════════════ -->
+        <!-- ZONE A: BROWSER (extended)                              -->
+        <!-- ═══════════════════════════════════════════════════════ -->
+        <mxCell id="zone-browser" value="Browser / PWA" style="swimlane;fillColor=#F7F6F3;strokeColor=#E5E3DC;fontStyle=1;fontSize=12;startSize=28;rounded=1;" vertex="1" parent="1">
+          <mxGeometry x="40" y="100" width="260" height="680" as="geometry" />
+        </mxCell>
+        <mxCell id="b-dashboard" value="◎ Dashboard" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#EAF2EE;strokeColor=#2A6049;fontColor=#2A6049;fontSize=11;" vertex="1" parent="1">
+          <mxGeometry x="60" y="140" width="200" height="36" as="geometry" />
+        </mxCell>
+        <mxCell id="b-receipts" value="≡ Receipts (paginated)" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#EAF2EE;strokeColor=#2A6049;fontColor=#2A6049;fontSize=11;" vertex="1" parent="1">
+          <mxGeometry x="60" y="188" width="200" height="36" as="geometry" />
+        </mxCell>
+        <mxCell id="b-scan" value="📷 Scan Receipt" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#EAF2EE;strokeColor=#2A6049;fontColor=#2A6049;fontSize=11;" vertex="1" parent="1">
+          <mxGeometry x="60" y="236" width="200" height="36" as="geometry" />
+        </mxCell>
+        <mxCell id="b-detail" value="Receipt Detail (confirm / correct)" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#EAF2EE;strokeColor=#2A6049;fontColor=#2A6049;fontSize=11;" vertex="1" parent="1">
+          <mxGeometry x="60" y="284" width="200" height="36" as="geometry" />
+        </mxCell>
+        <mxCell id="b-starling" value="✦ Starling Reconciliation" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#F0EBFF;strokeColor=#6C3CE1;fontColor=#4a2fa0;fontSize=11;fontStyle=1;" vertex="1" parent="1">
+          <mxGeometry x="60" y="332" width="200" height="36" as="geometry" />
+        </mxCell>
+        <mxCell id="b-starling-note" value="Month navigator · Matched/Partial/Missing&#xa;Shop | Receipt £ | Starling £ | Diff · ↻ Sync" style="text;html=1;strokeColor=#C5B3F5;fillColor=#F0EBFF;align=left;verticalAlign=top;whiteSpace=wrap;rounded=1;fontSize=10;fontColor=#4a2fa0;" vertex="1" parent="1">
+          <mxGeometry x="60" y="374" width="200" height="36" as="geometry" />
+        </mxCell>
+        <mxCell id="b-scan-note" value="Upload → fire &amp; forget (no polling)&#xa;S3 trigger handles processing async" style="text;html=1;strokeColor=#E5E3DC;fillColor=#F0EFEB;align=left;verticalAlign=top;whiteSpace=wrap;rounded=1;fontSize=10;fontColor=#6B6860;" vertex="1" parent="1">
+          <mxGeometry x="60" y="416" width="200" height="34" as="geometry" />
+        </mxCell>
+        <!-- v10 browser additions -->
+        <mxCell id="v10-b-finance" value="💳 Finance Dashboard (NEW)" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#E8F4FD;strokeColor=#1B6CA8;fontColor=#1B6CA8;fontSize=11;fontStyle=1;" vertex="1" parent="1">
+          <mxGeometry x="60" y="466" width="200" height="36" as="geometry" />
+        </mxCell>
+        <mxCell id="v10-b-finance-note" value="Transaction feed · Needs review queue&#xa;Manual entry (cash/card) · Edit payment method&#xa;Attach receipt photo (optional)&#xa;Download finance.xlsx" style="text;html=1;strokeColor=#A8D4F5;fillColor=#E8F4FD;align=left;verticalAlign=top;whiteSpace=wrap;rounded=1;fontSize=10;fontColor=#1B6CA8;" vertex="1" parent="1">
+          <mxGeometry x="60" y="508" width="200" height="60" as="geometry" />
+        </mxCell>
+
+        <!-- ═══════════════════════════════════════════════════════ -->
+        <!-- ZONE B: AWS EDGE (unchanged)                            -->
+        <!-- ═══════════════════════════════════════════════════════ -->
+        <mxCell id="zone-edge" value="AWS Edge" style="swimlane;fillColor=#F7F6F3;strokeColor=#E5E3DC;fontStyle=1;fontSize=12;startSize=28;rounded=1;" vertex="1" parent="1">
+          <mxGeometry x="340" y="100" width="200" height="180" as="geometry" />
+        </mxCell>
+        <mxCell id="cf" value="☁ CloudFront (HTTPS + cache)" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#EAF2EE;strokeColor=#2A6049;fontColor=#2A6049;fontSize=11;" vertex="1" parent="1">
+          <mxGeometry x="360" y="138" width="160" height="40" as="geometry" />
+        </mxCell>
+        <mxCell id="cognito" value="🔐 Cognito (PKCE login)" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#EAF2EE;strokeColor=#2A6049;fontColor=#2A6049;fontSize=11;" vertex="1" parent="1">
+          <mxGeometry x="360" y="190" width="160" height="40" as="geometry" />
+        </mxCell>
+        <mxCell id="apigw" value="⚡ API Gateway (Cognito JWT)" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#EAF2EE;strokeColor=#2A6049;fontColor=#2A6049;fontSize=11;" vertex="1" parent="1">
+          <mxGeometry x="360" y="242" width="160" height="40" as="geometry" />
+        </mxCell>
+
+        <!-- ═══════════════════════════════════════════════════════ -->
+        <!-- ZONE C: LAMBDAS (extended)                              -->
+        <!-- ═══════════════════════════════════════════════════════ -->
+        <mxCell id="zone-lambda" value="Lambda Functions" style="swimlane;fillColor=#F7F6F3;strokeColor=#E5E3DC;fontStyle=1;fontSize=12;startSize=28;rounded=1;" vertex="1" parent="1">
+          <mxGeometry x="580" y="100" width="220" height="860" as="geometry" />
+        </mxCell>
+        <mxCell id="fn-upload" value="receipt_upload&#xa;presigned URL + pending record" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#EAF2EE;strokeColor=#2A6049;fontColor=#2A6049;fontSize=11;" vertex="1" parent="1">
+          <mxGeometry x="596" y="138" width="188" height="40" as="geometry" />
+        </mxCell>
+        <mxCell id="fn-processor" value="receipt_processor&#xa;Textract + fuzzy match + total fallback" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#EAF2EE;strokeColor=#2A6049;fontColor=#2A6049;fontSize=11;" vertex="1" parent="1">
+          <mxGeometry x="596" y="190" width="188" height="40" as="geometry" />
+        </mxCell>
+        <mxCell id="fn-receipts" value="receipt_confirm&#xa;CRUD + corrections + Excel export" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#EAF2EE;strokeColor=#2A6049;fontColor=#2A6049;fontSize=11;" vertex="1" parent="1">
+          <mxGeometry x="596" y="242" width="188" height="40" as="geometry" />
+        </mxCell>
+        <mxCell id="fn-ref" value="category_trainer&#xa;retailers · categories · item types" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#EAF2EE;strokeColor=#2A6049;fontColor=#2A6049;fontSize=11;" vertex="1" parent="1">
+          <mxGeometry x="596" y="294" width="188" height="40" as="geometry" />
+        </mxCell>
+        <mxCell id="fn-admin" value="admin&#xa;backup / restore" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#EAF2EE;strokeColor=#2A6049;fontColor=#2A6049;fontSize=11;" vertex="1" parent="1">
+          <mxGeometry x="596" y="346" width="188" height="40" as="geometry" />
+        </mxCell>
+        <mxCell id="fn-sheetsync" value="sheet_sync&#xa;S3-triggered → master.xlsx → Sheets" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#EAF2EE;strokeColor=#2A6049;fontColor=#2A6049;fontSize=11;" vertex="1" parent="1">
+          <mxGeometry x="596" y="398" width="188" height="40" as="geometry" />
+        </mxCell>
+        <mxCell id="fn-starling" value="✦ starling&#xa;Sync · Match · Store · Export Excel" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#F0EBFF;strokeColor=#6C3CE1;fontColor=#4a2fa0;fontSize=11;fontStyle=1;" vertex="1" parent="1">
+          <mxGeometry x="596" y="450" width="188" height="40" as="geometry" />
+        </mxCell>
+        <mxCell id="fn-starling-routes" value="  POST /starling/sync?month=YYYY-MM&#xa;  GET  /starling/transactions?month=" style="text;html=1;strokeColor=#C5B3F5;fillColor=#F0EBFF;align=left;verticalAlign=top;whiteSpace=wrap;rounded=1;fontSize=10;fontColor=#4a2fa0;" vertex="1" parent="1">
+          <mxGeometry x="596" y="496" width="188" height="34" as="geometry" />
+        </mxCell>
+        <mxCell id="layer-note" value="CommonLayer shared by all Lambdas&#xa;(dynamo_client.py · models.py · deps)" style="text;html=1;strokeColor=#E5E3DC;fillColor=#F0EFEB;align=center;verticalAlign=middle;whiteSpace=wrap;rounded=1;fontSize=10;fontColor=#6B6860;" vertex="1" parent="1">
+          <mxGeometry x="596" y="542" width="188" height="28" as="geometry" />
+        </mxCell>
+        <!-- v10 lambda additions -->
+        <mxCell id="v10-fn-finance-sync" value="finance_sync (NEW)&#xa;Gmail pull · AI extract · Starling (finance space) · Match · Excel" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#E8F4FD;strokeColor=#1B6CA8;fontColor=#1B6CA8;fontSize=11;fontStyle=1;" vertex="1" parent="1">
+          <mxGeometry x="596" y="592" width="188" height="52" as="geometry" />
+        </mxCell>
+        <mxCell id="v10-fn-finance-sync-routes" value="  EventBridge 08:00 UTC (daily)&#xa;  POST /finance/sync (on-demand)" style="text;html=1;strokeColor=#A8D4F5;fillColor=#E8F4FD;align=left;verticalAlign=top;whiteSpace=wrap;rounded=1;fontSize=10;fontColor=#1B6CA8;" vertex="1" parent="1">
+          <mxGeometry x="596" y="648" width="188" height="34" as="geometry" />
+        </mxCell>
+        <mxCell id="v10-fn-finance-handler" value="finance_handler (NEW)&#xa;CRUD · manual entry · receipt attach · export" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#E8F4FD;strokeColor=#1B6CA8;fontColor=#1B6CA8;fontSize=11;fontStyle=1;" vertex="1" parent="1">
+          <mxGeometry x="596" y="696" width="188" height="52" as="geometry" />
+        </mxCell>
+        <mxCell id="v10-fn-finance-handler-routes" value="  GET  /finance/transactions&#xa;  PUT  /finance/transactions/{id}&#xa;  POST /finance/transactions&#xa;  POST /finance/transactions/{id}/receipt&#xa;  GET  /finance/export" style="text;html=1;strokeColor=#A8D4F5;fillColor=#E8F4FD;align=left;verticalAlign=top;whiteSpace=wrap;rounded=1;fontSize=10;fontColor=#1B6CA8;" vertex="1" parent="1">
+          <mxGeometry x="596" y="752" width="188" height="66" as="geometry" />
+        </mxCell>
+        <mxCell id="v10-layer-finance" value="FinanceLayer: openai · google-auth" style="text;html=1;strokeColor=#A8D4F5;fillColor=#E8F4FD;align=center;verticalAlign=middle;whiteSpace=wrap;rounded=1;fontSize=10;fontColor=#1B6CA8;" vertex="1" parent="1">
+          <mxGeometry x="596" y="830" width="188" height="24" as="geometry" />
+        </mxCell>
+
+        <!-- ═══════════════════════════════════════════════════════ -->
+        <!-- ZONE D: STORAGE (extended)                              -->
+        <!-- ═══════════════════════════════════════════════════════ -->
+        <mxCell id="zone-storage" value="Storage (DynamoDB + S3)" style="swimlane;fillColor=#F7F6F3;strokeColor=#E5E3DC;fontStyle=1;fontSize=12;startSize=28;rounded=1;" vertex="1" parent="1">
+          <mxGeometry x="840" y="100" width="240" height="860" as="geometry" />
+        </mxCell>
+        <mxCell id="db-receipts" value="grocery-receipts&#xa;receipt metadata" style="shape=cylinder3;whiteSpace=wrap;html=1;boundedLbl=1;backgroundOutline=1;size=8;fillColor=#EAF2EE;strokeColor=#2A6049;fontColor=#2A6049;fontSize=11;" vertex="1" parent="1">
+          <mxGeometry x="870" y="138" width="180" height="50" as="geometry" />
+        </mxCell>
+        <mxCell id="db-items" value="grocery-items&#xa;line items per receipt" style="shape=cylinder3;whiteSpace=wrap;html=1;boundedLbl=1;backgroundOutline=1;size=8;fillColor=#EAF2EE;strokeColor=#2A6049;fontColor=#2A6049;fontSize=11;" vertex="1" parent="1">
+          <mxGeometry x="870" y="202" width="180" height="50" as="geometry" />
+        </mxCell>
+        <mxCell id="db-mappings" value="grocery-mappings&#xa;store-item-category learned" style="shape=cylinder3;whiteSpace=wrap;html=1;boundedLbl=1;backgroundOutline=1;size=8;fillColor=#EAF2EE;strokeColor=#2A6049;fontColor=#2A6049;fontSize=11;" vertex="1" parent="1">
+          <mxGeometry x="870" y="266" width="180" height="50" as="geometry" />
+        </mxCell>
+        <mxCell id="db-ref" value="grocery-retailers / categories / item-types" style="shape=cylinder3;whiteSpace=wrap;html=1;boundedLbl=1;backgroundOutline=1;size=8;fillColor=#EAF2EE;strokeColor=#2A6049;fontColor=#2A6049;fontSize=11;" vertex="1" parent="1">
+          <mxGeometry x="870" y="330" width="180" height="50" as="geometry" />
+        </mxCell>
+        <mxCell id="db-starling" value="✦ grocery-starling-txns" style="shape=cylinder3;whiteSpace=wrap;html=1;boundedLbl=1;backgroundOutline=1;size=8;fillColor=#F0EBFF;strokeColor=#6C3CE1;fontColor=#4a2fa0;fontSize=11;fontStyle=1;" vertex="1" parent="1">
+          <mxGeometry x="870" y="394" width="180" height="50" as="geometry" />
+        </mxCell>
+        <mxCell id="db-starling-schema" value="PK: account_id#YYYY-MM · SK: transaction_id&#xa;merchant_name · amount · match_status&#xa;matched_receipt_id · diff_amount · synced_at" style="text;html=1;strokeColor=#C5B3F5;fillColor=#F0EBFF;align=left;verticalAlign=top;whiteSpace=wrap;rounded=1;fontSize=9;fontColor=#4a2fa0;" vertex="1" parent="1">
+          <mxGeometry x="858" y="450" width="204" height="44" as="geometry" />
+        </mxCell>
+        <mxCell id="s3-images" value="S3: grocery-images&#xa;receipt photos" style="shape=mxgraph.aws4.resourceIcon;resIcon=mxgraph.aws4.s3;html=1;whiteSpace=wrap;labelPosition=center;verticalLabelPosition=bottom;verticalAlign=top;fillColor=#EAF2EE;strokeColor=#2A6049;fontColor=#2A6049;fontSize=10;" vertex="1" parent="1">
+          <mxGeometry x="862" y="506" width="56" height="50" as="geometry" />
+        </mxCell>
+        <mxCell id="s3-exports" value="S3: grocery-exports&#xa;master.xlsx&#xa;starling-reconciliation.xlsx" style="shape=mxgraph.aws4.resourceIcon;resIcon=mxgraph.aws4.s3;html=1;whiteSpace=wrap;labelPosition=center;verticalLabelPosition=bottom;verticalAlign=top;fillColor=#F0EBFF;strokeColor=#6C3CE1;fontColor=#4a2fa0;fontSize=10;fontStyle=1;" vertex="1" parent="1">
+          <mxGeometry x="960" y="506" width="56" height="50" as="geometry" />
+        </mxCell>
+        <!-- v10 storage additions -->
+        <mxCell id="v10-db-finance" value="finance-transactions (NEW)" style="shape=cylinder3;whiteSpace=wrap;html=1;boundedLbl=1;backgroundOutline=1;size=8;fillColor=#E8F4FD;strokeColor=#1B6CA8;fontColor=#1B6CA8;fontSize=11;fontStyle=1;" vertex="1" parent="1">
+          <mxGeometry x="870" y="578" width="180" height="50" as="geometry" />
+        </mxCell>
+        <mxCell id="v10-db-finance-schema" value="PK: transaction_id (UUID)&#xa;source · status · date · store_name&#xa;amount_gbp · payment_method · category&#xa;notes · email_subject · email_message_id&#xa;starling_transaction_id · linked_ids[]&#xa;receipt_s3_key · created_at · exported_at&#xa;GSI: status-date-index · date-index" style="text;html=1;strokeColor=#A8D4F5;fillColor=#E8F4FD;align=left;verticalAlign=top;whiteSpace=wrap;rounded=1;fontSize=9;fontColor=#1B6CA8;" vertex="1" parent="1">
+          <mxGeometry x="858" y="634" width="204" height="84" as="geometry" />
+        </mxCell>
+        <mxCell id="v10-s3-finance-receipts" value="S3: finance-receipts/&#xa;optional receipt photos" style="shape=mxgraph.aws4.resourceIcon;resIcon=mxgraph.aws4.s3;html=1;whiteSpace=wrap;labelPosition=center;verticalLabelPosition=bottom;verticalAlign=top;fillColor=#E8F4FD;strokeColor=#1B6CA8;fontColor=#1B6CA8;fontSize=10;fontStyle=1;" vertex="1" parent="1">
+          <mxGeometry x="858" y="734" width="56" height="50" as="geometry" />
+        </mxCell>
+        <mxCell id="v10-s3-finance-excel" value="S3: finance-exports/&#xa;finance.xlsx&#xa;(always current)" style="shape=mxgraph.aws4.resourceIcon;resIcon=mxgraph.aws4.s3;html=1;whiteSpace=wrap;labelPosition=center;verticalLabelPosition=bottom;verticalAlign=top;fillColor=#E8F4FD;strokeColor=#1B6CA8;fontColor=#1B6CA8;fontSize=10;fontStyle=1;" vertex="1" parent="1">
+          <mxGeometry x="960" y="734" width="56" height="50" as="geometry" />
+        </mxCell>
+        <mxCell id="v10-s3-finance-note" value="Regenerated after every sync&#xa;AND after every manual edit" style="text;html=1;strokeColor=#A8D4F5;fillColor=#E8F4FD;align=left;verticalAlign=top;whiteSpace=wrap;rounded=1;fontSize=9;fontColor=#1B6CA8;" vertex="1" parent="1">
+          <mxGeometry x="858" y="796" width="204" height="30" as="geometry" />
+        </mxCell>
+
+        <!-- ═══════════════════════════════════════════════════════ -->
+        <!-- ZONE E: EXTERNAL SERVICES (extended)                    -->
+        <!-- ═══════════════════════════════════════════════════════ -->
+        <mxCell id="zone-ext" value="External Services" style="swimlane;fillColor=#F7F6F3;strokeColor=#E5E3DC;fontStyle=1;fontSize=12;startSize=28;rounded=1;" vertex="1" parent="1">
+          <mxGeometry x="1120" y="100" width="220" height="860" as="geometry" />
+        </mxCell>
+        <mxCell id="textract" value="AWS Textract&#xa;AnalyzeExpense API" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#EAF2EE;strokeColor=#2A6049;fontColor=#2A6049;fontSize=11;" vertex="1" parent="1">
+          <mxGeometry x="1136" y="138" width="188" height="40" as="geometry" />
+        </mxCell>
+        <mxCell id="ssm-google" value="SSM: /grocery-scanner/google-credentials" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#EAF2EE;strokeColor=#2A6049;fontColor=#2A6049;fontSize=11;" vertex="1" parent="1">
+          <mxGeometry x="1136" y="190" width="188" height="40" as="geometry" />
+        </mxCell>
+        <mxCell id="ssm-starling-token" value="✦ SSM: starling-token (PAT, no expiry)" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#F0EBFF;strokeColor=#6C3CE1;fontColor=#4a2fa0;fontSize=11;fontStyle=1;" vertex="1" parent="1">
+          <mxGeometry x="1136" y="242" width="188" height="40" as="geometry" />
+        </mxCell>
+        <mxCell id="ssm-starling-uid" value="✦ SSM: starling-space-uid (Groceries)" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#F0EBFF;strokeColor=#6C3CE1;fontColor=#4a2fa0;fontSize=11;fontStyle=1;" vertex="1" parent="1">
+          <mxGeometry x="1136" y="294" width="188" height="40" as="geometry" />
+        </mxCell>
+        <mxCell id="starling-api" value="✦ Starling Bank API&#xa;api.starlingbank.com" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#F0EBFF;strokeColor=#6C3CE1;fontColor=#4a2fa0;fontSize=11;fontStyle=1;" vertex="1" parent="1">
+          <mxGeometry x="1136" y="346" width="188" height="40" as="geometry" />
+        </mxCell>
+        <mxCell id="starling-api-note" value="Groceries Space: direction=OUT, SETTLED&#xa;Finance Space: direction=OUT, SETTLED" style="text;html=1;strokeColor=#C5B3F5;fillColor=#F0EBFF;align=left;verticalAlign=top;whiteSpace=wrap;rounded=1;fontSize=10;fontColor=#4a2fa0;" vertex="1" parent="1">
+          <mxGeometry x="1136" y="392" width="188" height="36" as="geometry" />
+        </mxCell>
+        <mxCell id="gsheets" value="Google Sheets + Looker Studio&#xa;fed by master.xlsx (existing)" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#EAF2EE;strokeColor=#2A6049;fontColor=#2A6049;fontSize=11;" vertex="1" parent="1">
+          <mxGeometry x="1136" y="440" width="188" height="40" as="geometry" />
+        </mxCell>
+        <!-- v10 external additions -->
+        <mxCell id="v10-eventbridge" value="EventBridge Rule (NEW)&#xa;Daily 08:00 UTC → finance_sync" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#E8F4FD;strokeColor=#1B6CA8;fontColor=#1B6CA8;fontSize=11;fontStyle=1;" vertex="1" parent="1">
+          <mxGeometry x="1136" y="500" width="188" height="40" as="geometry" />
+        </mxCell>
+        <mxCell id="v10-ssm-gmail" value="SSM (NEW): gmail-refresh-token&#xa;gmail-client-id · gmail-client-secret" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#E8F4FD;strokeColor=#1B6CA8;fontColor=#1B6CA8;fontSize=11;fontStyle=1;" vertex="1" parent="1">
+          <mxGeometry x="1136" y="552" width="188" height="44" as="geometry" />
+        </mxCell>
+        <mxCell id="v10-ssm-starling-finance" value="SSM (NEW): starling-finance-space-uid&#xa;(online spending pot)" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#E8F4FD;strokeColor=#1B6CA8;fontColor=#1B6CA8;fontSize=11;fontStyle=1;" vertex="1" parent="1">
+          <mxGeometry x="1136" y="608" width="188" height="44" as="geometry" />
+        </mxCell>
+        <mxCell id="v10-ssm-openai" value="SSM (NEW): openai-api-key" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#E8F4FD;strokeColor=#1B6CA8;fontColor=#1B6CA8;fontSize=11;fontStyle=1;" vertex="1" parent="1">
+          <mxGeometry x="1136" y="664" width="188" height="36" as="geometry" />
+        </mxCell>
+        <mxCell id="v10-gmail-api" value="Gmail API (NEW)&#xa;api.gmail.googleapis.com&#xa;Scope: gmail.modify · ~30 emails/month" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#E8F4FD;strokeColor=#1B6CA8;fontColor=#1B6CA8;fontSize=11;fontStyle=1;" vertex="1" parent="1">
+          <mxGeometry x="1136" y="712" width="188" height="44" as="geometry" />
+        </mxCell>
+        <mxCell id="v10-openai-api" value="OpenAI API (NEW): gpt-4o-mini&#xa;Email extraction · item parsing&#xa;~30 calls/month · &lt;$0.01/month" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#E8F4FD;strokeColor=#1B6CA8;fontColor=#1B6CA8;fontSize=11;fontStyle=1;" vertex="1" parent="1">
+          <mxGeometry x="1136" y="768" width="188" height="44" as="geometry" />
+        </mxCell>
+        <mxCell id="v10-openai-note" value="Extracts: store_name · amount · currency&#xa;date · order_id · items[] · payment_ref&#xa;paypal_sub_merchant (if applicable)&#xa;Unknown senders → extract + flag low-confidence" style="text;html=1;strokeColor=#A8D4F5;fillColor=#E8F4FD;align=left;verticalAlign=top;whiteSpace=wrap;rounded=1;fontSize=10;fontColor=#1B6CA8;" vertex="1" parent="1">
+          <mxGeometry x="1136" y="818" width="188" height="60" as="geometry" />
+        </mxCell>
+
+        <!-- ═══════════════════════════════════════════════════════ -->
+        <!-- STARLING GROCERY SYNC FLOW (from v9, shifted down)      -->
+        <!-- ═══════════════════════════════════════════════════════ -->
+        <mxCell id="flow-label" value="STARLING GROCERY SYNC FLOW (POST /starling/sync)" style="text;html=1;strokeColor=none;fillColor=#F0EBFF;align=left;verticalAlign=middle;whiteSpace=wrap;rounded=1;fontSize=12;fontStyle=1;fontColor=#4a2fa0;" vertex="1" parent="1">
+          <mxGeometry x="40" y="1000" width="430" height="28" as="geometry" />
+        </mxCell>
+        <mxCell id="flow1" value="① User taps&#xa;↻ Sync" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#F0EBFF;strokeColor=#6C3CE1;fontColor=#4a2fa0;fontSize=11;" vertex="1" parent="1">
+          <mxGeometry x="40" y="1040" width="120" height="44" as="geometry" />
+        </mxCell>
+        <mxCell id="flow2" value="② SSM: read&#xa;token + space UID" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#F0EBFF;strokeColor=#6C3CE1;fontColor=#4a2fa0;fontSize=11;" vertex="1" parent="1">
+          <mxGeometry x="178" y="1040" width="130" height="44" as="geometry" />
+        </mxCell>
+        <mxCell id="flow3" value="③ Starling API:&#xa;fetch month txns" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#F0EBFF;strokeColor=#6C3CE1;fontColor=#4a2fa0;fontSize=11;" vertex="1" parent="1">
+          <mxGeometry x="326" y="1040" width="130" height="44" as="geometry" />
+        </mxCell>
+        <mxCell id="flow4" value="④ DynamoDB:&#xa;fetch receipts (month)" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#F0EBFF;strokeColor=#6C3CE1;fontColor=#4a2fa0;fontSize=11;" vertex="1" parent="1">
+          <mxGeometry x="474" y="1040" width="140" height="44" as="geometry" />
+        </mxCell>
+        <mxCell id="flow5" value="⑤ Match: amount&#xa;exact + date ±2 days" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#F0EBFF;strokeColor=#6C3CE1;fontColor=#4a2fa0;fontSize=11;" vertex="1" parent="1">
+          <mxGeometry x="632" y="1040" width="140" height="44" as="geometry" />
+        </mxCell>
+        <mxCell id="flow6" value="⑥ Store in&#xa;starling-txns table" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#F0EBFF;strokeColor=#6C3CE1;fontColor=#4a2fa0;fontSize=11;" vertex="1" parent="1">
+          <mxGeometry x="790" y="1040" width="130" height="44" as="geometry" />
+        </mxCell>
+        <mxCell id="flow7" value="⑦ Write starling-&#xa;reconciliation.xlsx" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#F0EBFF;strokeColor=#6C3CE1;fontColor=#4a2fa0;fontSize=11;" vertex="1" parent="1">
+          <mxGeometry x="938" y="1040" width="140" height="44" as="geometry" />
+        </mxCell>
+        <mxCell id="flow8" value="⑧ Return&#xa;summary to UI" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#F0EBFF;strokeColor=#6C3CE1;fontColor=#4a2fa0;fontSize=11;" vertex="1" parent="1">
+          <mxGeometry x="1096" y="1040" width="120" height="44" as="geometry" />
+        </mxCell>
+        <mxCell id="arr1" style="edgeStyle=orthogonalEdgeStyle;strokeColor=#6C3CE1;strokeWidth=2;" edge="1" parent="1" source="flow1" target="flow2"><mxGeometry relative="1" as="geometry"/></mxCell>
+        <mxCell id="arr2" style="edgeStyle=orthogonalEdgeStyle;strokeColor=#6C3CE1;strokeWidth=2;" edge="1" parent="1" source="flow2" target="flow3"><mxGeometry relative="1" as="geometry"/></mxCell>
+        <mxCell id="arr3" style="edgeStyle=orthogonalEdgeStyle;strokeColor=#6C3CE1;strokeWidth=2;" edge="1" parent="1" source="flow3" target="flow4"><mxGeometry relative="1" as="geometry"/></mxCell>
+        <mxCell id="arr4" style="edgeStyle=orthogonalEdgeStyle;strokeColor=#6C3CE1;strokeWidth=2;" edge="1" parent="1" source="flow4" target="flow5"><mxGeometry relative="1" as="geometry"/></mxCell>
+        <mxCell id="arr5" style="edgeStyle=orthogonalEdgeStyle;strokeColor=#6C3CE1;strokeWidth=2;" edge="1" parent="1" source="flow5" target="flow6"><mxGeometry relative="1" as="geometry"/></mxCell>
+        <mxCell id="arr6" style="edgeStyle=orthogonalEdgeStyle;strokeColor=#6C3CE1;strokeWidth=2;" edge="1" parent="1" source="flow6" target="flow7"><mxGeometry relative="1" as="geometry"/></mxCell>
+        <mxCell id="arr7" style="edgeStyle=orthogonalEdgeStyle;strokeColor=#6C3CE1;strokeWidth=2;" edge="1" parent="1" source="flow7" target="flow8"><mxGeometry relative="1" as="geometry"/></mxCell>
+
+        <!-- ═══════════════════════════════════════════════════════ -->
+        <!-- FINANCE EMAIL SYNC FLOW (NEW v10)                       -->
+        <!-- ═══════════════════════════════════════════════════════ -->
+        <mxCell id="v10-flow-label" value="FINANCE EMAIL SYNC FLOW — NEW v10 (EventBridge daily 08:00 UTC · POST /finance/sync on-demand)" style="text;html=1;strokeColor=none;fillColor=#E8F4FD;align=left;verticalAlign=middle;whiteSpace=wrap;rounded=1;fontSize=12;fontStyle=1;fontColor=#1B6CA8;" vertex="1" parent="1">
+          <mxGeometry x="40" y="1130" width="680" height="28" as="geometry" />
+        </mxCell>
+        <mxCell id="v10-flow1" value="① EventBridge&#xa;08:00 UTC or&#xa;user taps Sync" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#E8F4FD;strokeColor=#1B6CA8;fontColor=#1B6CA8;fontSize=11;" vertex="1" parent="1">
+          <mxGeometry x="40" y="1172" width="115" height="52" as="geometry" />
+        </mxCell>
+        <mxCell id="v10-flow2" value="② SSM: read&#xa;Gmail credentials" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#E8F4FD;strokeColor=#1B6CA8;fontColor=#1B6CA8;fontSize=11;" vertex="1" parent="1">
+          <mxGeometry x="172" y="1172" width="115" height="52" as="geometry" />
+        </mxCell>
+        <mxCell id="v10-flow3" value="③ Gmail API:&#xa;fetch unread emails&#xa;mark as read" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#E8F4FD;strokeColor=#1B6CA8;fontColor=#1B6CA8;fontSize=11;" vertex="1" parent="1">
+          <mxGeometry x="304" y="1172" width="115" height="52" as="geometry" />
+        </mxCell>
+        <mxCell id="v10-flow4" value="④ OpenAI gpt-4o-mini:&#xa;extract store · amount&#xa;date · items · ref" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#E8F4FD;strokeColor=#1B6CA8;fontColor=#1B6CA8;fontSize=11;" vertex="1" parent="1">
+          <mxGeometry x="436" y="1172" width="130" height="52" as="geometry" />
+        </mxCell>
+        <mxCell id="v10-flow5" value="⑤ Starling API:&#xa;finance-space txns&#xa;(last 7 days)" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#E8F4FD;strokeColor=#1B6CA8;fontColor=#1B6CA8;fontSize=11;" vertex="1" parent="1">
+          <mxGeometry x="584" y="1172" width="115" height="52" as="geometry" />
+        </mxCell>
+        <mxCell id="v10-flow6" value="⑥ Upsert all&#xa;into finance-&#xa;transactions table" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#E8F4FD;strokeColor=#1B6CA8;fontColor=#1B6CA8;fontSize=11;" vertex="1" parent="1">
+          <mxGeometry x="716" y="1172" width="115" height="52" as="geometry" />
+        </mxCell>
+        <mxCell id="v10-flow7" value="⑦ Match: amount +&#xa;date ±3 days. Flag&#xa;ambiguous → needs_review" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#E8F4FD;strokeColor=#1B6CA8;fontColor=#1B6CA8;fontSize=11;" vertex="1" parent="1">
+          <mxGeometry x="848" y="1172" width="140" height="52" as="geometry" />
+        </mxCell>
+        <mxCell id="v10-flow8" value="⑧ Regenerate&#xa;finance.xlsx → S3" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#E8F4FD;strokeColor=#1B6CA8;fontColor=#1B6CA8;fontSize=11;" vertex="1" parent="1">
+          <mxGeometry x="1006" y="1172" width="120" height="52" as="geometry" />
+        </mxCell>
+        <mxCell id="v10-flow9" value="⑨ Return&#xa;summary to UI" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#E8F4FD;strokeColor=#1B6CA8;fontColor=#1B6CA8;fontSize=11;" vertex="1" parent="1">
+          <mxGeometry x="1144" y="1172" width="110" height="52" as="geometry" />
+        </mxCell>
+        <mxCell id="v10-arr1" style="edgeStyle=orthogonalEdgeStyle;strokeColor=#1B6CA8;strokeWidth=2;" edge="1" parent="1" source="v10-flow1" target="v10-flow2"><mxGeometry relative="1" as="geometry"/></mxCell>
+        <mxCell id="v10-arr2" style="edgeStyle=orthogonalEdgeStyle;strokeColor=#1B6CA8;strokeWidth=2;" edge="1" parent="1" source="v10-flow2" target="v10-flow3"><mxGeometry relative="1" as="geometry"/></mxCell>
+        <mxCell id="v10-arr3" style="edgeStyle=orthogonalEdgeStyle;strokeColor=#1B6CA8;strokeWidth=2;" edge="1" parent="1" source="v10-flow3" target="v10-flow4"><mxGeometry relative="1" as="geometry"/></mxCell>
+        <mxCell id="v10-arr4" style="edgeStyle=orthogonalEdgeStyle;strokeColor=#1B6CA8;strokeWidth=2;" edge="1" parent="1" source="v10-flow4" target="v10-flow5"><mxGeometry relative="1" as="geometry"/></mxCell>
+        <mxCell id="v10-arr5" style="edgeStyle=orthogonalEdgeStyle;strokeColor=#1B6CA8;strokeWidth=2;" edge="1" parent="1" source="v10-flow5" target="v10-flow6"><mxGeometry relative="1" as="geometry"/></mxCell>
+        <mxCell id="v10-arr6" style="edgeStyle=orthogonalEdgeStyle;strokeColor=#1B6CA8;strokeWidth=2;" edge="1" parent="1" source="v10-flow6" target="v10-flow7"><mxGeometry relative="1" as="geometry"/></mxCell>
+        <mxCell id="v10-arr7" style="edgeStyle=orthogonalEdgeStyle;strokeColor=#1B6CA8;strokeWidth=2;" edge="1" parent="1" source="v10-flow7" target="v10-flow8"><mxGeometry relative="1" as="geometry"/></mxCell>
+        <mxCell id="v10-arr8" style="edgeStyle=orthogonalEdgeStyle;strokeColor=#1B6CA8;strokeWidth=2;" edge="1" parent="1" source="v10-flow8" target="v10-flow9"><mxGeometry relative="1" as="geometry"/></mxCell>
+
+        <!-- Notes row -->
+        <mxCell id="v10-match-note" value="Matching logic (step ⑦):&#xa;• matched      — email + Starling: same amount, date ±3 days&#xa;• linked        — PayPal + eBay email: same amount, date ±3 days (known pair)&#xa;• needs_review — ambiguous: multiple candidates or amount mismatch&#xa;• unmatched    — email only (paid by card/cash) or Starling only (no email)" style="text;html=1;strokeColor=#1B6CA8;fillColor=#E8F4FD;align=left;verticalAlign=top;whiteSpace=wrap;rounded=1;fontSize=11;fontColor=#1B6CA8;" vertex="1" parent="1">
+          <mxGeometry x="40" y="1244" width="500" height="84" as="geometry" />
+        </mxCell>
+        <mxCell id="v10-excel-note" value="finance.xlsx (step ⑧):&#xa;Columns: Date | Store | Category | Item Type | Amount (GBP) | Payment Method | Source | Status | Transaction ID&#xa;• One row per logical transaction&#xa;• Regenerated after every sync AND after every manual edit&#xa;• Entirely separate from master.xlsx and starling-reconciliation.xlsx" style="text;html=1;strokeColor=#1B6CA8;fillColor=#E8F4FD;align=left;verticalAlign=top;whiteSpace=wrap;rounded=1;fontSize=11;fontColor=#1B6CA8;" vertex="1" parent="1">
+          <mxGeometry x="558" y="1244" width="520" height="84" as="geometry" />
+        </mxCell>
+        <mxCell id="v10-setup-note" value="One-time setup (Finance v10):&#xa;1. Create OAuth credentials at console.cloud.google.com&#xa;2. Obtain refresh token, store in SSM: gmail-refresh-token, gmail-client-id, gmail-client-secret&#xa;3. Create new Starling pot for online spending&#xa;4. Store pot UID in SSM: starling-finance-space-uid&#xa;5. Create OpenAI account, store key in SSM: openai-api-key" style="text;html=1;strokeColor=#1B6CA8;fillColor=#E8F4FD;align=left;verticalAlign=top;whiteSpace=wrap;rounded=1;fontSize=11;fontColor=#1B6CA8;" vertex="1" parent="1">
+          <mxGeometry x="1096" y="1244" width="480" height="84" as="geometry" />
+        </mxCell>
+
+      </root>
+    </mxGraphModel>
+  </diagram>
+</mxfile>
