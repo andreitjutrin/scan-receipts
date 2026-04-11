@@ -9,8 +9,6 @@ import sys
 import boto3
 from datetime import datetime, timezone
 
-sys.path.insert(0, "/var/task")
-
 from rapidfuzz import fuzz, process as rf_process
 import dynamo_client as db
 from models import (
@@ -153,7 +151,11 @@ def parse_textract(resp: dict):
             ftype = field.get("Type", {}).get("Text", "").upper()
             value = field.get("ValueDetection", {}).get("Text", "").strip()
             if ftype in ("INVOICE_RECEIPT_DATE", "DATE") and not date:
-                date = value
+                try:
+                    from dateutil import parser as _dp
+                    date = _dp.parse(value, dayfirst=True).date().isoformat()
+                except Exception:
+                    date = None
             if ftype == "TOTAL" and not total:
                 total = value
             if value:
@@ -161,17 +163,43 @@ def parse_textract(resp: dict):
 
         for group in doc.get("LineItemGroups", []):
             for line in group.get("LineItems", []):
-                name = price = qty = ""
+                name = unit_price = line_price = qty = ""
                 for field in line.get("LineItemExpenseFields", []):
                     ftype = field.get("Type", {}).get("Text", "").upper()
                     value = field.get("ValueDetection", {}).get("Text", "").strip()
-                    if ftype == "ITEM":     name  = value
-                    elif ftype in ("UNIT_PRICE", "PRICE"): price = value
-                    elif ftype == "QUANTITY": qty   = value
+                    if ftype == "ITEM":       name       = value
+                    elif ftype == "UNIT_PRICE": unit_price = unit_price or value
+                    elif ftype == "PRICE":      line_price = line_price or value
+                    elif ftype == "QUANTITY":   qty        = value
+                # Prefer PRICE (line total, rightmost column) — correct for multi-quantity items.
+                # Fall back to UNIT_PRICE if no line total detected.
+                price = line_price or unit_price
                 if name:
                     items.append({"name": name, "price": price or "0.00", "quantity": qty or "1", "price_raw": price})
 
     return date, total, " ".join(header_parts[:15]), items
+
+
+def _calculate_total_from_items(items):
+    """Fallback total: sum item prices when Textract doesn't return a TOTAL field."""
+    total = 0.0
+    for item in items:
+        raw = (item.price_raw or item.price or "").strip()
+        num_str = re.sub(r'[^\d./]', '', raw)
+        if not num_str:
+            continue
+        try:
+            if '/' in num_str:
+                # per-unit price like "0.95/kg" — multiply by quantity
+                unit = float(num_str.split('/')[0])
+                qty_clean = re.sub(r'[^\d.]', '', (item.quantity or "1"))
+                qty = float(qty_clean) if qty_clean else 1.0
+                total += unit * qty
+            else:
+                total += float(num_str)
+        except ValueError:
+            pass
+    return f"£{total:.2f}" if total > 0 else None
 
 
 def process_receipt(receipt_id: str, bucket: str, s3_key: str, store_id: str = "unknown"):
@@ -259,6 +287,9 @@ def process_receipt(receipt_id: str, bucket: str, s3_key: str, store_id: str = "
         db.delete_items(receipt_id)
         db.save_items(receipt_id, [i.model_dump() for i in receipt_items])
 
+        if not total and receipt_items:
+            total = _calculate_total_from_items(receipt_items)
+
         status = (ProcessingStatus.NEEDS_REVIEW if needs_review_count > 0
                   else ProcessingStatus.COMPLETED)
 
@@ -272,12 +303,6 @@ def process_receipt(receipt_id: str, bucket: str, s3_key: str, store_id: str = "
             item_count=len(receipt_items),
             needs_review_count=needs_review_count
         )
-
-        # Auto-export if all items matched at 100%
-        if needs_review_count == 0 and db.receipt_export_ready(receipt_id):
-            exports_bucket = os.environ.get("EXPORTS_BUCKET", "")
-            if exports_bucket:
-                db.export_receipt_to_excel(receipt_id, exports_bucket)
 
     except Exception as e:
         import traceback; traceback.print_exc()
@@ -326,16 +351,18 @@ def lambda_handler(event, context):
         return _error(500, str(e))
 
 
+_ORIGIN = os.environ.get("FRONTEND_ORIGIN", "*")
+
 def _ok(data):
     return {
         "statusCode": 200,
-        "headers": {"Content-Type": "application/json", "Access-Control-Allow-Origin": "*"},
+        "headers": {"Content-Type": "application/json", "Access-Control-Allow-Origin": _ORIGIN},
         "body": json.dumps({"success": True, **data}, default=str)
     }
 
 def _error(status, message):
     return {
         "statusCode": status,
-        "headers": {"Content-Type": "application/json", "Access-Control-Allow-Origin": "*"},
+        "headers": {"Content-Type": "application/json", "Access-Control-Allow-Origin": _ORIGIN},
         "body": json.dumps({"success": False, "error": message})
     }

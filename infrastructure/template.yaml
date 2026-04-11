@@ -14,20 +14,28 @@ Parameters:
     Default: dev
     AllowedValues: [dev, prod]
 
-  ApiKeyValue:
-    Type: String
-    NoEcho: true
-    Description: API key — change before deploying to prod
-
   AlertEmail:
     Type: String
     Default: "your@email.com"
     Description: Email address for cost/error alerts (process limit breaches)
 
+  CognitoCallbackUrl:
+    Type: String
+    Default: "https://placeholder.cloudfront.net"
+    Description: CloudFront URL — update after first deploy and redeploy
+
+  GoogleSheetId:
+    Type: String
+    Default: ""
+    Description: Google Sheet ID for Looker Studio sync (prod only)
+
+Conditions:
+  IsProd: !Equals [!Ref Environment, "prod"]
+
 Globals:
   Function:
     Runtime: python3.12
-    Architectures: [arm64]
+    Architectures: [x86_64]
     MemorySize: 256
     Timeout: 30
     Environment:
@@ -41,8 +49,10 @@ Globals:
         ITEM_TYPES_TABLE:  !Ref ItemTypesTable
         IMAGES_BUCKET:    !Ref ImagesBucket
         EXPORTS_BUCKET:   !Ref ExportsBucket
-        ALERT_TOPIC_ARN:  !Ref AlertTopic
-        LOG_LEVEL:        INFO
+        STARLING_TABLE:   !Ref StarlingTable
+        ALERT_TOPIC_ARN:   !Ref AlertTopic
+        LOG_LEVEL:         INFO
+        FRONTEND_ORIGIN:   !Ref CognitoCallbackUrl
         # Confidence thresholds — matches models.py constants
         THRESHOLD_SILENT: "0.92"   # >= this: auto-categorise silently
         THRESHOLD_REVIEW: "0.75"   # >= this: auto-categorise, flag for review
@@ -96,6 +106,8 @@ Resources:
     Type: AWS::S3::Bucket
     Properties:
       BucketName: !Sub "grocery-exports-${Environment}-${AWS::AccountId}"
+      VersioningConfiguration:
+        Status: Enabled
       CorsConfiguration:
         CorsRules:
           - AllowedHeaders: ["*"]
@@ -117,6 +129,19 @@ Resources:
             # Delete dated backup files after 30 days
             NoncurrentVersionExpirationInDays: 30
             ExpirationInDays: 90   # keep named backups for 90 days
+
+  # ---------------------------------------------------------------------------
+  # COMMON LAYER — shared dynamo_client.py, models.py, and dependencies
+  # ---------------------------------------------------------------------------
+  CommonLayer:
+    Type: AWS::Serverless::LayerVersion
+    Properties:
+      LayerName: !Sub "grocery-common-${Environment}"
+      ContentUri: ../lambdas/common/
+      CompatibleRuntimes: [python3.12]
+      CompatibleArchitectures: [x86_64]
+    Metadata:
+      BuildMethod: python3.12
 
   # Allow S3 to invoke the processor Lambda.
   # FunctionName uses !Sub with account/region to avoid circular dependency.
@@ -226,6 +251,22 @@ Resources:
         - AttributeName: item_type_id
           KeyType: HASH
 
+  StarlingTable:
+    Type: AWS::DynamoDB::Table
+    Properties:
+      TableName: !Sub "grocery-starling-txns-${Environment}"
+      BillingMode: PAY_PER_REQUEST
+      AttributeDefinitions:
+        - AttributeName: month
+          AttributeType: S
+        - AttributeName: transaction_id
+          AttributeType: S
+      KeySchema:
+        - AttributeName: month
+          KeyType: HASH
+        - AttributeName: transaction_id
+          KeyType: RANGE
+
   RetailersTable:
     Type: AWS::DynamoDB::Table
     Properties:
@@ -288,12 +329,22 @@ Resources:
                   - !GetAtt CategoriesTable.Arn
                   - !GetAtt RetailersTable.Arn
                   - !GetAtt ItemTypesTable.Arn
+                  - !GetAtt StarlingTable.Arn
               - Effect: Allow
                 Action: textract:AnalyzeExpense
                 Resource: "*"
               - Effect: Allow
                 Action: sns:Publish
                 Resource: !Ref AlertTopic
+              - Effect: Allow
+                Action: ssm:GetParameter
+                Resource:
+                  - !Sub "arn:aws:ssm:${AWS::Region}:${AWS::AccountId}:parameter/grocery-scanner-google-credentials"
+                  - !Sub "arn:aws:ssm:${AWS::Region}:${AWS::AccountId}:parameter/grocery-scanner/${Environment}/starling-token"
+                  - !Sub "arn:aws:ssm:${AWS::Region}:${AWS::AccountId}:parameter/grocery-scanner/${Environment}/starling-spaces"
+              - Effect: Allow
+                Action: kms:Decrypt
+                Resource: "*"
 
   # ---------------------------------------------------------------------------
   # LAMBDA FUNCTIONS
@@ -306,6 +357,8 @@ Resources:
       CodeUri: ../lambdas/receipt_upload/
       Handler: handler.lambda_handler
       Role: !GetAtt LambdaRole.Arn
+      Layers:
+        - !Ref CommonLayer
       Description: >
         Creates pending receipt record, returns presigned S3 URL.
         User selects store_id before calling this.
@@ -319,8 +372,6 @@ Resources:
             RestApiId: !Ref Api
             Path: /receipts/upload-url
             Method: POST
-            Auth:
-              ApiKeyRequired: true
 
   UploadLogGroup:
     Type: AWS::Logs::LogGroup
@@ -335,6 +386,8 @@ Resources:
       CodeUri: ../lambdas/receipt_processor/
       Handler: handler.lambda_handler
       Role: !GetAtt LambdaRole.Arn
+      Layers:
+        - !Ref CommonLayer
       Description: >
         Triggered automatically by S3 event when photo lands.
         Runs Textract, hybrid matching, saves items, updates Excel.
@@ -353,8 +406,6 @@ Resources:
             RestApiId: !Ref Api
             Path: /receipts/{receipt_id}/reprocess
             Method: POST
-            Auth:
-              ApiKeyRequired: true
 
   ProcessorLogGroup:
     Type: AWS::Logs::LogGroup
@@ -369,40 +420,76 @@ Resources:
       CodeUri: ../lambdas/receipt_confirm/
       Handler: handler.lambda_handler
       Role: !GetAtt LambdaRole.Arn
+      Layers:
+        - !Ref CommonLayer
       Description: CRUD for receipts and items, saves user corrections to mappings
       Events:
+        GetReceiptsSummary:
+          Type: Api
+          Properties:
+            RestApiId: !Ref Api
+            Path: /receipts/summary
+            Method: GET
         ListReceipts:
           Type: Api
           Properties:
             RestApiId: !Ref Api
             Path: /receipts
             Method: GET
-            Auth:
-              ApiKeyRequired: true
         GetReceipt:
           Type: Api
           Properties:
             RestApiId: !Ref Api
             Path: /receipts/{receipt_id}
             Method: GET
-            Auth:
-              ApiKeyRequired: true
         ConfirmReceipt:
           Type: Api
           Properties:
             RestApiId: !Ref Api
             Path: /receipts/{receipt_id}/confirm
             Method: POST
-            Auth:
-              ApiKeyRequired: true
         DeleteReceipt:
           Type: Api
           Properties:
             RestApiId: !Ref Api
             Path: /receipts/{receipt_id}
             Method: DELETE
-            Auth:
-              ApiKeyRequired: true
+        DeleteItem:
+          Type: Api
+          Properties:
+            RestApiId: !Ref Api
+            Path: /receipts/{receipt_id}/items/{item_seq}
+            Method: DELETE
+        PatchItem:
+          Type: Api
+          Properties:
+            RestApiId: !Ref Api
+            Path: /receipts/{receipt_id}/items/{item_seq}
+            Method: PATCH
+        UpdateReceiptTotal:
+          Type: Api
+          Properties:
+            RestApiId: !Ref Api
+            Path: /receipts/{receipt_id}/total
+            Method: PATCH
+        FlagItemExpense:
+          Type: Api
+          Properties:
+            RestApiId: !Ref Api
+            Path: /receipts/{receipt_id}/items/{item_seq}/expense
+            Method: POST
+        SplitItem:
+          Type: Api
+          Properties:
+            RestApiId: !Ref Api
+            Path: /receipts/{receipt_id}/items/{item_seq}/split
+            Method: POST
+        ListExpenses:
+          Type: Api
+          Properties:
+            RestApiId: !Ref Api
+            Path: /expenses
+            Method: GET
 
   ReceiptsLogGroup:
     Type: AWS::Logs::LogGroup
@@ -417,6 +504,8 @@ Resources:
       CodeUri: ../lambdas/category_trainer/
       Handler: handler.lambda_handler
       Role: !GetAtt LambdaRole.Arn
+      Layers:
+        - !Ref CommonLayer
       Description: Categories and retailers reference data — GET lists, POST new store
       Events:
         GetCategories:
@@ -425,56 +514,42 @@ Resources:
             RestApiId: !Ref Api
             Path: /categories
             Method: GET
-            Auth:
-              ApiKeyRequired: true
         GetRetailers:
           Type: Api
           Properties:
             RestApiId: !Ref Api
             Path: /retailers
             Method: GET
-            Auth:
-              ApiKeyRequired: true
         AddRetailer:
           Type: Api
           Properties:
             RestApiId: !Ref Api
             Path: /retailers
             Method: POST
-            Auth:
-              ApiKeyRequired: true
         GetItemTypes:
           Type: Api
           Properties:
             RestApiId: !Ref Api
             Path: /item-types
             Method: GET
-            Auth:
-              ApiKeyRequired: true
         AddItemType:
           Type: Api
           Properties:
             RestApiId: !Ref Api
             Path: /item-types
             Method: POST
-            Auth:
-              ApiKeyRequired: true
         UpdateItemType:
           Type: Api
           Properties:
             RestApiId: !Ref Api
             Path: /item-types/{item_type_id}
             Method: PUT
-            Auth:
-              ApiKeyRequired: true
         GetMappings:
           Type: Api
           Properties:
             RestApiId: !Ref Api
             Path: /mappings
             Method: GET
-            Auth:
-              ApiKeyRequired: true
 
   ReferenceLogGroup:
     Type: AWS::Logs::LogGroup
@@ -489,6 +564,8 @@ Resources:
       CodeUri: ../lambdas/admin/
       Handler: handler.lambda_handler
       Role: !GetAtt LambdaRole.Arn
+      Layers:
+        - !Ref CommonLayer
       Description: Admin endpoints — list backups, restore backup
       Events:
         ListBackups:
@@ -497,21 +574,72 @@ Resources:
             RestApiId: !Ref Api
             Path: /admin/backups
             Method: GET
-            Auth:
-              ApiKeyRequired: true
         RestoreBackup:
           Type: Api
           Properties:
             RestApiId: !Ref Api
             Path: /admin/restore-backup
             Method: POST
-            Auth:
-              ApiKeyRequired: true
 
   AdminLogGroup:
     Type: AWS::Logs::LogGroup
     Properties:
       LogGroupName: !Sub "/aws/lambda/grocery-admin-${Environment}"
+      RetentionInDays: 14
+
+  StarlingFunction:
+    Type: AWS::Serverless::Function
+    Properties:
+      FunctionName: !Sub "grocery-starling-${Environment}"
+      CodeUri: ../lambdas/starling/
+      Handler: handler.lambda_handler
+      Role: !GetAtt LambdaRole.Arn
+      Layers:
+        - !Ref CommonLayer
+      Timeout: 60
+      Description: Starling Bank sync — fetch transactions, match receipts, write Excel
+      Events:
+        SyncStarling:
+          Type: Api
+          Properties:
+            RestApiId: !Ref Api
+            Path: /starling/sync
+            Method: POST
+        GetStarlingTransactions:
+          Type: Api
+          Properties:
+            RestApiId: !Ref Api
+            Path: /starling/transactions
+            Method: GET
+        GetStarlingExport:
+          Type: Api
+          Properties:
+            RestApiId: !Ref Api
+            Path: /starling/export
+            Method: GET
+        GetStarlingReceipts:
+          Type: Api
+          Properties:
+            RestApiId: !Ref Api
+            Path: /starling/receipts
+            Method: GET
+        PostStarlingMatch:
+          Type: Api
+          Properties:
+            RestApiId: !Ref Api
+            Path: /starling/match
+            Method: POST
+        DeleteStarlingMatch:
+          Type: Api
+          Properties:
+            RestApiId: !Ref Api
+            Path: /starling/match
+            Method: DELETE
+
+  StarlingLogGroup:
+    Type: AWS::Logs::LogGroup
+    Properties:
+      LogGroupName: !Sub "/aws/lambda/grocery-starling-${Environment}"
       RetentionInDays: 14
 
   # ---------------------------------------------------------------------------
@@ -523,39 +651,203 @@ Resources:
       Name: !Sub "grocery-api-${Environment}"
       StageName: !Ref Environment
       Auth:
-        # ApiKeyRequired is NOT set here — setting it globally applies to OPTIONS
-        # preflight requests too, which browsers send without an API key, causing
-        # CORS to fail. Instead each real method sets ApiKeyRequired individually.
-        UsagePlan:
-          CreateUsagePlan: PER_API
-          Quota:
-            Limit: 500
-            Period: DAY
-          Throttle:
-            BurstLimit: 10
-            RateLimit: 5
+        DefaultAuthorizer: CognitoAuthorizer
+        AddDefaultAuthorizerToCorsPreflight: false
+        Authorizers:
+          CognitoAuthorizer:
+            UserPoolArn: !GetAtt CognitoUserPool.Arn
+            Identity:
+              Header: Authorization
       Cors:
-        AllowMethods: "'GET,POST,DELETE,OPTIONS'"
-        AllowHeaders: "'Content-Type,X-Api-Key'"
-        AllowOrigin:  "'*'"
+        AllowMethods: "'GET,POST,DELETE,PATCH,OPTIONS'"
+        AllowHeaders: "'Content-Type,Authorization'"
+        AllowOrigin:  !Sub "'${CognitoCallbackUrl}'"
       # GatewayResponses injects CORS headers onto API Gateway error responses
-      # (e.g. 403 Missing Authentication Token on OPTIONS preflight, 4xx/5xx errors).
+      # (e.g. 401/403 on failed Cognito auth, 4xx/5xx errors).
       # Without this, the browser sees a network error instead of the real status code
       # because the error response arrives without Access-Control-Allow-Origin.
-      # 'null' origin covers pages loaded via file:// on disk.
       GatewayResponses:
         DEFAULT_4XX:
           ResponseParameters:
             Headers:
-              Access-Control-Allow-Origin: "'*'"
-              Access-Control-Allow-Headers: "'Content-Type,X-Api-Key'"
-              Access-Control-Allow-Methods: "'GET,POST,DELETE,OPTIONS'"
+              Access-Control-Allow-Origin: !Sub "'${CognitoCallbackUrl}'"
+              Access-Control-Allow-Headers: "'Content-Type,Authorization'"
+              Access-Control-Allow-Methods: "'GET,POST,DELETE,PATCH,OPTIONS'"
         DEFAULT_5XX:
           ResponseParameters:
             Headers:
-              Access-Control-Allow-Origin: "'*'"
-              Access-Control-Allow-Headers: "'Content-Type,X-Api-Key'"
-              Access-Control-Allow-Methods: "'GET,POST,DELETE,OPTIONS'"
+              Access-Control-Allow-Origin: !Sub "'${CognitoCallbackUrl}'"
+              Access-Control-Allow-Headers: "'Content-Type,Authorization'"
+              Access-Control-Allow-Methods: "'GET,POST,DELETE,PATCH,OPTIONS'"
+
+  # ---------------------------------------------------------------------------
+  # COGNITO — user auth (admin-only signup, PKCE flow)
+  # ---------------------------------------------------------------------------
+  CognitoUserPool:
+    Type: AWS::Cognito::UserPool
+    Properties:
+      UserPoolName: !Sub "grocery-scanner-${Environment}"
+      UsernameAttributes: [email]
+      AutoVerifiedAttributes: [email]
+      Policies:
+        PasswordPolicy:
+          MinimumLength: 12
+          RequireUppercase: true
+          RequireLowercase: true
+          RequireNumbers: true
+          RequireSymbols: false
+      AdminCreateUserConfig:
+        AllowAdminCreateUserOnly: true
+
+  CognitoUserPoolClient:
+    Type: AWS::Cognito::UserPoolClient
+    Properties:
+      ClientName: !Sub "grocery-scanner-app-${Environment}"
+      UserPoolId: !Ref CognitoUserPool
+      GenerateSecret: false
+      AllowedOAuthFlows: [code]
+      AllowedOAuthScopes: [openid, email, profile]
+      AllowedOAuthFlowsUserPoolClient: true
+      ExplicitAuthFlows: [ALLOW_REFRESH_TOKEN_AUTH]
+      AccessTokenValidity: 24
+      IdTokenValidity: 24
+      RefreshTokenValidity: 365
+      TokenValidityUnits:
+        AccessToken: hours
+        IdToken: hours
+        RefreshToken: days
+      CallbackURLs: [!Ref CognitoCallbackUrl]
+      LogoutURLs: [!Ref CognitoCallbackUrl]
+      SupportedIdentityProviders: [COGNITO]
+      PreventUserExistenceErrors: ENABLED
+
+  CognitoUserPoolDomain:
+    Type: AWS::Cognito::UserPoolDomain
+    Properties:
+      Domain: !Sub "grocery-${Environment}-${AWS::AccountId}"
+      UserPoolId: !Ref CognitoUserPool
+
+  # ---------------------------------------------------------------------------
+  # FRONTEND HOSTING — S3 (private) + CloudFront OAC
+  # ---------------------------------------------------------------------------
+  FrontendBucket:
+    Type: AWS::S3::Bucket
+    Properties:
+      BucketName: !Sub "grocery-frontend-${Environment}-${AWS::AccountId}"
+      PublicAccessBlockConfiguration:
+        BlockPublicAcls:       true
+        BlockPublicPolicy:     true
+        IgnorePublicAcls:      true
+        RestrictPublicBuckets: true
+
+  FrontendSecurityHeadersPolicy:
+    Type: AWS::CloudFront::ResponseHeadersPolicy
+    Properties:
+      ResponseHeadersPolicyConfig:
+        Name: !Sub "grocery-security-headers-${Environment}"
+        SecurityHeadersConfig:
+          StrictTransportSecurity:
+            AccessControlMaxAgeSec: 63072000   # 2 years
+            IncludeSubdomains: true
+            Override: true
+          ContentTypeOptions:
+            Override: true
+          FrameOptions:
+            FrameOption: DENY
+            Override: true
+          ReferrerPolicy:
+            ReferrerPolicy: strict-origin-when-cross-origin
+            Override: true
+          ContentSecurityPolicy:
+            ContentSecurityPolicy: !Sub >-
+              default-src 'none';
+              script-src 'self' 'unsafe-inline';
+              style-src 'self' 'unsafe-inline' https://fonts.googleapis.com;
+              font-src 'self' https://fonts.gstatic.com;
+              img-src 'self' data: blob: https://*.amazonaws.com;
+              connect-src 'self' https://*.execute-api.${AWS::Region}.amazonaws.com https://cognito-idp.${AWS::Region}.amazonaws.com https://*.amazoncognito.com https://*.s3.${AWS::Region}.amazonaws.com;
+              frame-ancestors 'none';
+            Override: true
+
+  FrontendOAC:
+    Type: AWS::CloudFront::OriginAccessControl
+    Properties:
+      OriginAccessControlConfig:
+        Name: !Sub "grocery-frontend-oac-${Environment}"
+        OriginAccessControlOriginType: s3
+        SigningBehavior: always
+        SigningProtocol: sigv4
+
+  FrontendDistribution:
+    Type: AWS::CloudFront::Distribution
+    Properties:
+      DistributionConfig:
+        DefaultRootObject: receipt-scanner-app.html
+        Origins:
+          - Id: S3Origin
+            DomainName: !GetAtt FrontendBucket.RegionalDomainName
+            S3OriginConfig: {}
+            OriginAccessControlId: !GetAtt FrontendOAC.Id
+        DefaultCacheBehavior:
+          TargetOriginId: S3Origin
+          ViewerProtocolPolicy: redirect-to-https
+          CachePolicyId: 658327ea-f89d-4fab-a63d-7e88639e58f6  # CachingOptimized
+          ResponseHeadersPolicyId: !Ref FrontendSecurityHeadersPolicy
+          AllowedMethods: [GET, HEAD]
+        Enabled: true
+        HttpVersion: http2
+        Comment: !Sub "Grocery Scanner ${Environment}"
+
+  FrontendBucketPolicy:
+    Type: AWS::S3::BucketPolicy
+    Properties:
+      Bucket: !Ref FrontendBucket
+      PolicyDocument:
+        Statement:
+          - Effect: Allow
+            Principal:
+              Service: cloudfront.amazonaws.com
+            Action: s3:GetObject
+            Resource: !Sub "arn:aws:s3:::${FrontendBucket}/*"
+            Condition:
+              StringEquals:
+                AWS:SourceArn: !Sub "arn:aws:cloudfront::${AWS::AccountId}:distribution/${FrontendDistribution}"
+
+  # ---------------------------------------------------------------------------
+  # SHEET SYNC — Google Sheets mirror (prod only)
+  # S3 notification configured separately via CLI after deploy (same pattern
+  # as ImagesBucket) to avoid chicken-and-egg CloudFormation dependency.
+  # ---------------------------------------------------------------------------
+  SheetSyncFunction:
+    Type: AWS::Serverless::Function
+    Condition: IsProd
+    Properties:
+      FunctionName: !Sub "grocery-sheet-sync-${Environment}"
+      CodeUri: ../lambdas/sheet_sync/
+      Handler: handler.lambda_handler
+      Role: !GetAtt LambdaRole.Arn
+      Layers:
+        - !Ref CommonLayer
+      Timeout: 60
+      Description: >
+        Syncs master.xlsx from S3 to Google Sheets on every export.
+        Triggered by S3 ObjectCreated event (configured via CLI after deploy).
+      Environment:
+        Variables:
+          GOOGLE_SHEET_ID:       !Ref GoogleSheetId
+          GOOGLE_CREDENTIALS_SSM: "grocery-scanner-google-credentials"
+
+  # Allow S3 to invoke SheetSyncFunction.
+  # Uses !Sub ARN (not !GetAtt) to avoid circular dependency with ExportsBucket.
+  ExportsBucketSheetSyncPermission:
+    Type: AWS::Lambda::Permission
+    Condition: IsProd
+    DependsOn: SheetSyncFunction
+    Properties:
+      FunctionName: !Sub "arn:aws:lambda:${AWS::Region}:${AWS::AccountId}:function:grocery-sheet-sync-${Environment}"
+      Action: lambda:InvokeFunction
+      Principal: s3.amazonaws.com
+      SourceArn: !Sub "arn:aws:s3:::grocery-exports-${Environment}-${AWS::AccountId}"
 
 # =============================================================================
 # OUTPUTS
@@ -576,3 +868,31 @@ Outputs:
   AlertTopicArn:
     Description: "SNS topic for cost/error alerts"
     Value: !Ref AlertTopic
+
+  FrontendBucketName:
+    Description: "S3 bucket hosting the frontend HTML"
+    Value: !Ref FrontendBucket
+
+  CloudFrontUrl:
+    Description: "CloudFront HTTPS URL for the frontend"
+    Value: !Sub "https://${FrontendDistribution.DomainName}"
+
+  CloudFrontDistributionId:
+    Description: "CloudFront distribution ID (for cache invalidation)"
+    Value: !Ref FrontendDistribution
+
+  CognitoUserPoolId:
+    Description: "Cognito User Pool ID"
+    Value: !Ref CognitoUserPool
+
+  CognitoClientId:
+    Description: "Cognito App Client ID"
+    Value: !Ref CognitoUserPoolClient
+
+  CognitoHostedUiDomain:
+    Description: "Cognito Hosted UI base URL"
+    Value: !Sub "https://grocery-${Environment}-${AWS::AccountId}.auth.${AWS::Region}.amazoncognito.com"
+
+  CommonLayerArn:
+    Description: "Shared Lambda Layer ARN"
+    Value: !Ref CommonLayer

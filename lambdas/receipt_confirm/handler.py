@@ -1,15 +1,17 @@
-﻿import os
-"""
-Receipts Lambda ' CRUD for receipts and line items.
+﻿"""
+Receipts Lambda — CRUD for receipts and line items.
 """
 
 import json
 import os
 import sys
-sys.path.insert(0, "/var/task")
+import boto3
 
 import dynamo_client as db
 from models import ProcessingStatus
+
+IMAGES_BUCKET  = os.environ["IMAGES_BUCKET"]
+EXPORTS_BUCKET = os.environ["EXPORTS_BUCKET"]
 
 
 def lambda_handler(event, context):
@@ -17,16 +19,31 @@ def lambda_handler(event, context):
     path       = event.get("path", "")
     params     = event.get("pathParameters") or {}
     receipt_id = params.get("receipt_id")
+    item_seq   = params.get("item_seq")
 
     try:
-        if method == "GET" and "/receipts" in path and not receipt_id:
+        if method == "GET" and path == "/expenses":
+            return _list_expenses()
+        elif method == "GET" and path.endswith("/receipts/summary"):
+            return _get_receipts_summary()
+        elif method == "GET" and "/receipts" in path and not receipt_id:
             return _list_receipts(event)
         elif method == "GET" and receipt_id and "confirm" not in path:
             return _get_receipt(receipt_id)
         elif method == "POST" and receipt_id and "confirm" in path:
             return _confirm_receipt(receipt_id, event)
+        elif method == "POST" and receipt_id and item_seq and "expense" in path:
+            return _flag_expense(receipt_id, item_seq, event)
+        elif method == "POST" and receipt_id and item_seq and "split" in path:
+            return _split_item(receipt_id, item_seq, event)
+        elif method == "PATCH" and receipt_id and item_seq:
+            return _update_item_price(receipt_id, item_seq, event)
+        elif method == "DELETE" and receipt_id and item_seq:
+            return _delete_item(receipt_id, item_seq)
         elif method == "DELETE" and receipt_id:
             return _delete_receipt(receipt_id)
+        elif method == "PATCH" and receipt_id and "total" in path:
+            return _update_total(receipt_id, event)
         else:
             return _error(404, "Not found")
     except Exception as e:
@@ -34,10 +51,17 @@ def lambda_handler(event, context):
         return _error(500, str(e))
 
 
+def _get_receipts_summary():
+    summary = db.get_receipts_summary()
+    return _ok(summary)
+
+
 def _list_receipts(event):
-    qp        = event.get("queryStringParameters") or {}
-    receipts  = db.list_receipts(date_from=qp.get("from"), date_to=qp.get("to"))
-    return _ok({"receipts": receipts, "count": len(receipts)})
+    qp     = event.get("queryStringParameters") or {}
+    before = qp.get("before")
+    days   = min(max(int(qp.get("days", 3)), 1), 30)
+    result = db.list_receipts_page(before=before, days=days)
+    return _ok(result)
 
 
 def _get_receipt(receipt_id):
@@ -66,8 +90,6 @@ def _confirm_receipt(receipt_id, event):
         return _error(400, "Invalid JSON")
 
     corrections = body.get("items", [])
-    if not corrections:
-        return _error(400, "No items provided")
 
     receipt = db.get_receipt(receipt_id)
     if not receipt:
@@ -114,38 +136,179 @@ def _confirm_receipt(receipt_id, event):
                   else ProcessingStatus.NEEDS_REVIEW.value)
     db.update_receipt(receipt_id, status=new_status, needs_review_count=still_open)
 
-    # Auto-export when all items are validated
-    exported = False
-    if still_open == 0 and db.receipt_export_ready(receipt_id):
-        exports_bucket = os.environ.get("EXPORTS_BUCKET", "")
-        if exports_bucket:
-            result = db.export_receipt_to_excel(receipt_id, exports_bucket)
-            exported = result is not None
+    # Confirm = explicit user approval — always export to Excel
+    result   = db.export_receipt_to_excel(receipt_id, EXPORTS_BUCKET)
+    exported = result is not None
 
     return _ok({"receipt_id": receipt_id, "corrected": corrected,
                 "still_open": still_open, "status": new_status, "exported": exported})
+
+
+def _update_item_price(receipt_id, item_seq, event):
+    try:
+        body = json.loads(event.get("body") or "{}")
+    except json.JSONDecodeError:
+        return _error(400, "Invalid JSON")
+    price = body.get("price")
+    if price is None:
+        return _error(400, "price is required")
+    if not db.get_receipt(receipt_id):
+        return _error(404, f"Receipt {receipt_id} not found")
+    db.update_item_price(receipt_id, item_seq, str(price))
+    return _ok({"receipt_id": receipt_id, "item_seq": item_seq, "price": price})
+
+
+def _delete_item(receipt_id, item_seq):
+    receipt = db.get_receipt(receipt_id)
+    if not receipt:
+        return _error(404, f"Receipt {receipt_id} not found")
+
+    db.delete_item(receipt_id, item_seq)
+
+    all_items  = db.get_items(receipt_id)
+    item_count = len(all_items)
+    still_open = sum(1 for i in all_items if i.get("needs_review") and not i.get("confirmed"))
+    new_status = (ProcessingStatus.COMPLETED.value if still_open == 0
+                  else ProcessingStatus.NEEDS_REVIEW.value)
+    db.update_receipt(receipt_id, status=new_status,
+                      needs_review_count=still_open, item_count=item_count)
+
+    return _ok({"receipt_id": receipt_id, "item_seq": item_seq,
+                "item_count": item_count, "still_open": still_open,
+                "status": new_status})
 
 
 def _delete_receipt(receipt_id):
     receipt = db.get_receipt(receipt_id)
     if not receipt:
         return _error(404, f"Receipt {receipt_id} not found")
+
     db.delete_items(receipt_id)
     db.delete_receipt(receipt_id)
+
+    s3_key = receipt.get("s3_key")
+    if s3_key:
+        try:
+            boto3.client("s3").delete_object(Bucket=IMAGES_BUCKET, Key=s3_key)
+        except Exception as e:
+            import logging
+            logging.getLogger(__name__).warning("Could not delete S3 image %s: %s", s3_key, e)
+
+    try:
+        db.remove_receipt_from_excel(receipt_id, EXPORTS_BUCKET)
+    except Exception as e:
+        import logging
+        logging.getLogger(__name__).warning("Could not remove from Excel: %s", e)
+
     return _ok({"deleted": receipt_id})
 
+
+def _update_total(receipt_id, event):
+    try:
+        body = json.loads(event.get("body") or "{}")
+    except json.JSONDecodeError:
+        return _error(400, "Invalid JSON")
+    total = body.get("total_amount")
+    if total is None:
+        return _error(400, "total_amount is required")
+    if not db.get_receipt(receipt_id):
+        return _error(404, f"Receipt {receipt_id} not found")
+    db.update_receipt(receipt_id, total_amount=str(total))
+    return _ok({"receipt_id": receipt_id, "total_amount": total})
+
+
+def _flag_expense(receipt_id, item_seq, event):
+    try:
+        body = json.loads(event.get("body") or "{}")
+    except json.JSONDecodeError:
+        return _error(400, "Invalid JSON")
+
+    is_expense = bool(body.get("is_expense", False))
+    receipt = db.get_receipt(receipt_id)
+    if not receipt:
+        return _error(404, f"Receipt {receipt_id} not found")
+
+    db.set_item_expense(receipt_id, item_seq, is_expense)
+
+    # If this receipt was already exported to Excel, refresh it so the
+    # expense exclusion (or re-inclusion) takes effect immediately.
+    items = db.get_items(receipt_id)
+    already_exported = any(i.get("exported_to_excel") for i in items)
+    if already_exported:
+        db.remove_receipt_from_excel(receipt_id, EXPORTS_BUCKET)
+        # Re-export only if there are still non-expense items remaining
+        if any(not i.get("is_expense") for i in items):
+            db.export_receipt_to_excel(receipt_id, EXPORTS_BUCKET)
+
+    return _ok({"receipt_id": receipt_id, "item_seq": item_seq, "is_expense": is_expense})
+
+
+def _split_item(receipt_id, item_seq, event):
+    try:
+        body = json.loads(event.get("body") or "{}")
+    except json.JSONDecodeError:
+        return _error(400, "Invalid JSON")
+
+    import re
+    name1  = (body.get("name1") or "").strip()
+    price1 = str(body.get("price1") or "0.00")
+    name2  = (body.get("name2") or "").strip()
+    price2 = str(body.get("price2") or "0.00")
+
+    if not name1 or not name2:
+        return _error(400, "name1 and name2 are required")
+
+    receipt = db.get_receipt(receipt_id)
+    if not receipt:
+        return _error(404, f"Receipt {receipt_id} not found")
+
+    def _norm(s):
+        s = s.lower().strip()
+        s = re.sub(r'\b\d+\s*(g|kg|ml|l|oz|lb|pack|pk|x\d+)\b', '', s, flags=re.I)
+        return re.sub(r'\s+', ' ', s).strip()
+
+    db.replace_item(receipt_id, {
+        "item_seq": item_seq, "raw_name": name1, "normalized_name": _norm(name1),
+        "price": price1, "price_raw": price1, "category": "unknown",
+        "needs_review": True, "confirmed": False, "match_source": "unknown",
+        "match_confidence": 0.0, "quantity": "1", "exported_to_excel": False,
+    })
+
+    new_seq = item_seq + "s"
+    db.replace_item(receipt_id, {
+        "item_seq": new_seq, "raw_name": name2, "normalized_name": _norm(name2),
+        "price": price2, "price_raw": price2, "category": "unknown",
+        "needs_review": True, "confirmed": False, "match_source": "unknown",
+        "match_confidence": 0.0, "quantity": "1", "exported_to_excel": False,
+    })
+
+    all_items  = db.get_items(receipt_id)
+    still_open = sum(1 for i in all_items if i.get("needs_review") and not i.get("confirmed"))
+    db.update_receipt(receipt_id, needs_review_count=still_open,
+                      item_count=len(all_items),
+                      status=ProcessingStatus.NEEDS_REVIEW.value)
+
+    return _ok({"receipt_id": receipt_id, "split_seq": item_seq, "new_seq": new_seq})
+
+
+def _list_expenses():
+    items = db.list_expense_items()
+    return _ok({"expenses": items, "count": len(items)})
+
+
+_ORIGIN = os.environ.get("FRONTEND_ORIGIN", "*")
 
 def _ok(data):
     return {
         "statusCode": 200,
-        "headers": {"Content-Type": "application/json", "Access-Control-Allow-Origin": "*",
-                    "Access-Control-Allow-Headers": "Content-Type,X-Api-Key"},
+        "headers": {"Content-Type": "application/json", "Access-Control-Allow-Origin": _ORIGIN,
+                    "Access-Control-Allow-Headers": "Content-Type,Authorization"},
         "body": json.dumps({"success": True, **data}, default=str)
     }
 
 def _error(status, message):
     return {
         "statusCode": status,
-        "headers": {"Content-Type": "application/json", "Access-Control-Allow-Origin": "*"},
+        "headers": {"Content-Type": "application/json", "Access-Control-Allow-Origin": _ORIGIN},
         "body": json.dumps({"success": False, "error": message})
     }

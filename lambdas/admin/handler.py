@@ -4,8 +4,6 @@ Admin Lambda — backup management.
 
 import json
 import os
-import sys
-sys.path.insert(0, "/var/task")
 
 import dynamo_client as db
 
@@ -37,17 +35,19 @@ def lambda_handler(event, context):
         return _error(500, str(e))
 
 
+_ORIGIN = os.environ.get("FRONTEND_ORIGIN", "*")
+
 def _ok(data):
     return {
         "statusCode": 200,
-        "headers": {"Content-Type": "application/json", "Access-Control-Allow-Origin": "*",
-                    "Access-Control-Allow-Headers": "Content-Type,X-Api-Key"},
+        "headers": {"Content-Type": "application/json", "Access-Control-Allow-Origin": _ORIGIN,
+                    "Access-Control-Allow-Headers": "Content-Type,Authorization"},
         "body": json.dumps({"success": True, **data}, default=str)
     }
 
 def _error(status, message):
     return {
         "statusCode": status,
-        "headers": {"Content-Type": "application/json", "Access-Control-Allow-Origin": "*"},
+        "headers": {"Content-Type": "application/json", "Access-Control-Allow-Origin": _ORIGIN},
         "body": json.dumps({"success": False, "error": message})
     }

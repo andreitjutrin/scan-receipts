@@ -11,7 +11,7 @@ confirm_changeset       = false
 fail_on_empty_changeset = false
 
 [dev.deploy.parameters]
-parameter_overrides     = ["Environment=dev", "ApiKeyValue=dev-key-change-me", "AlertEmail=your@gmail.com"]
+parameter_overrides     = ["Environment=dev", "AlertEmail=your@gmail.com", "CognitoCallbackUrl=https://d34shldjctzphb.cloudfront.net"]
 tags                    = "Project=GroceryScanner Environment=dev"
 
 [dev.build.parameters]
@@ -28,7 +28,7 @@ confirm_changeset       = true
 fail_on_empty_changeset = false
 
 [prod.deploy.parameters]
-parameter_overrides     = ["Environment=prod", "ApiKeyValue=REPLACE-WITH-STRONG-KEY", "AlertEmail=your@gmail.com"]
+parameter_overrides     = ["Environment=prod", "AlertEmail=your@gmail.com", "CognitoCallbackUrl=https://dmsq3wtut3507.cloudfront.net", "GoogleSheetId=1Ixuyc4jyTt9AXV5ql0zI-2T1DxY4VPaLq08e4HkRYpE"]
 tags                    = "Project=GroceryScanner Environment=prod"
 
 [prod.build.parameters]

@@ -8,17 +8,19 @@ import json
 import os
 import uuid
 import boto3
+from botocore.config import Config
 from datetime import datetime, timezone
 
 IMAGES_BUCKET    = os.environ["IMAGES_BUCKET"]
 PRESIGNED_EXPIRY = int(os.environ.get("PRESIGNED_EXPIRY", "300"))
 
-import sys
-sys.path.insert(0, "/var/task")
 import dynamo_client as db
 from models import Receipt, ProcessingStatus
 
-s3 = boto3.client("s3")
+_region = os.environ.get("AWS_REGION", "eu-west-2")
+s3 = boto3.client("s3", region_name=_region,
+                  endpoint_url=f"https://s3.{_region}.amazonaws.com",
+                  config=Config(s3={"addressing_style": "virtual"}))
 
 
 def lambda_handler(event, context):
@@ -65,13 +67,15 @@ def lambda_handler(event, context):
     })
 
 
+_ORIGIN = os.environ.get("FRONTEND_ORIGIN", "*")
+
 def _ok(data):
     return {
         "statusCode": 200,
         "headers": {
             "Content-Type":                "application/json",
-            "Access-Control-Allow-Origin": "*",
-            "Access-Control-Allow-Headers": "Content-Type,X-Api-Key"
+            "Access-Control-Allow-Origin": _ORIGIN,
+            "Access-Control-Allow-Headers": "Content-Type,Authorization"
         },
         "body": json.dumps({"success": True, **data})
     }
@@ -81,7 +85,7 @@ def _error(status, message):
         "statusCode": status,
         "headers": {
             "Content-Type":                "application/json",
-            "Access-Control-Allow-Origin": "*"
+            "Access-Control-Allow-Origin": _ORIGIN
         },
         "body": json.dumps({"success": False, "error": message})
     }

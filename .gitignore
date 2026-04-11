@@ -3,3 +3,21 @@ __pycache__/
 *.pyc
 .env
 *.egg-info/
+
+# Node
+node_modules/
+
+# Lambda pip-install vendor dirs
+lambdas/*/vendor/
+
+# Built layer artifacts
+shared/
+
+# Generated / local-only files
+infrastructure/config.js
+build_stdout.txt
+items_all.json
+receipts_scan.json
+
+# Claude internal
+.claude/

@@ -1,4 +1,6 @@
 #!/usr/bin/env python3
+import sys, io
+sys.stdout = io.TextIOWrapper(sys.stdout.buffer, encoding='utf-8', errors='replace')
 """
 Seed Script - populates DynamoDB with categories, retailers, and global
 keyword mappings (store_id = "global") as the baseline for the hybrid
@@ -26,252 +28,75 @@ GLOBAL_STORE = "global"
 # =============================================================================
 CATEGORIES = [
     {
-        "category_id": "vegetables",
-        "name": "Vegetables",
-        "icon": "🥦",
-        "keywords": [
-            "asparagus", "aubergine", "avocado", "babyleaf", "beetroot",
-            "broccoli", "brussel sprouts", "butternut squash", "cabbage",
-            "carrot", "cauliflower", "cavolo nero", "celery", "chilli",
-            "corn", "courgette", "cucumber", "fennel", "garlic",
-            "ginger", "green lentils", "kale", "kidney beans", "leek",
-            "lentils", "lotus root", "mushroom", "okra", "onion",
-            "pak choi", "parsnip", "pea shoots", "pepper", "potato",
-            "pumpkin", "radish", "red pepper", "shallot", "spinach",
-            "spring onion", "squash", "swede", "sweet potato", "sweetcorn",
-            "tofu", "tomato", "turnip", "vegetable mix", "vine tomatoes",
-            "cherry tomatoes", "watercress",
-        ]
-    },
-    {
-        "category_id": "fruits",
-        "name": "Fruits",
-        "icon": "🍎",
-        "keywords": [
-            "apple", "apricot", "banana", "blackberry", "blueberry",
-            "cherry", "clementine", "grape", "grapefruit", "kiwi",
-            "lemon", "lime", "lychee", "mandarin", "mango", "melon",
-            "nectarine", "orange", "peach", "pear", "physalis",
-            "pineapple", "plum", "pomegranate", "raspberry", "satsuma",
-            "strawberry", "watermelon",
-        ]
-    },
-    {
-        "category_id": "salad-herbs",
-        "name": "Salad & Herbs",
-        "icon": "🌿",
-        "keywords": [
-            "basil", "chives", "coriander", "curry leaves", "dill",
-            "mint", "parsley", "rocket", "rosemary", "salad", "thyme",
-            "wild rocket",
-        ]
-    },
-    {
-        "category_id": "meat",
-        "name": "Meat",
-        "icon": "🥩",
-        "keywords": [
-            "bacon", "beef", "beef mince", "chicken", "chicken breast",
-            "chicken thigh", "chicken wings", "chorizo", "duck", "duck legs",
-            "gammon", "garlic sausage", "goat", "ham", "lamb", "lamb chops",
-            "lamb mince", "pancetta", "pepperoni", "pork", "pork belly",
-            "pork chop", "prosciutto", "salami", "sausage", "steak",
-            "turkey", "veal", "venison", "breaded chicken",
-        ]
-    },
-    {
-        "category_id": "fish-seafood",
-        "name": "Fish & Seafood",
-        "icon": "🐟",
-        "keywords": [
-            "anchovy", "caviar", "clam", "cod", "crab", "fish cake",
-            "fish fingers", "haddock", "lobster", "mackerel", "mussel",
-            "oyster", "plaice", "prawn", "rainbow trout", "salmon",
-            "sardine", "scallop", "sea bass", "sea bream", "seafood sticks",
-            "shrimp", "smoked fish", "smoked salmon", "squid", "tilapia",
-            "trout", "tuna", "king prawn", "squid rings", "breaded fish",
-            "fishcake",
-        ]
-    },
-    {
-        "category_id": "dairy-eggs",
-        "name": "Dairy & Eggs",
-        "icon": "🧀",
-        "keywords": [
-            "almond milk", "buttermilk", "hazelnut milk", "milk",
-            "nut milk", "oat milk", "semi-skimmed", "skimmed milk",
-            "soya milk", "whole milk",
-            "brie", "camembert", "cheddar", "cheese", "cottage cheese",
-            "cream cheese", "feta", "gouda", "halloumi", "mozzarella",
-            "parmesan", "stilton",
-            "ayran", "fromage frais", "greek yogurt", "kefir",
-            "yoghurt", "yogurt",
-            "butter", "creme fraiche", "custard", "double cream",
-            "lurpak", "single cream", "soured cream", "vanilla cream",
-            "whipped cream", "whipping cream",
-            "egg", "eggs", "free range eggs",
-        ]
-    },
-    {
-        "category_id": "bakery",
-        "name": "Bakery & Bread",
-        "icon": "🍞",
-        "keywords": [
-            "baguette", "bagel", "bap", "biscuit", "bread", "brownie",
-            "cake", "ciabatta", "cracker", "croissant", "crumpet",
-            "danish", "doughnut", "flapjack", "hot cross bun", "hovis",
-            "kingsmill", "loaf", "muffin", "naan", "oatcake",
-            "pain au chocolat", "pitta", "roll", "rye bread", "scone",
-            "sourdough", "tortilla", "warburtons", "white bread",
-            "wholemeal", "wrap",
-        ]
-    },
-    {
-        "category_id": "frozen",
-        "name": "Frozen",
-        "icon": "❄️",
-        "keywords": [
-            "chips", "dumplings", "fish fingers", "french fries",
-            "frozen berries", "frozen fruit", "frozen peas", "frozen pizza",
-            "frozen veg", "garlic bread", "hash brown", "ice cream",
-            "ice lolly", "mixed fruits", "onion rings", "paratha",
-            "pizza", "sorbet", "spring rolls", "chicken nugget",
-        ]
-    },
-    {
-        "category_id": "drinks",
-        "name": "Drinks",
-        "icon": "🥤",
-        "keywords": [
-            "apple juice", "coffee", "coffee drink", "coffee filter",
-            "coke", "cola", "cordial", "dr pepper", "energy drink",
-            "fanta", "fruit juice", "green tea", "herbal tea",
-            "hot chocolate", "innocent", "innocent juice", "iron bru",
-            "kombucha", "lemonade", "lucozade", "mineral water", "monster",
-            "orange juice", "ribena", "smoothie", "sparkling water",
-            "sprite", "squash", "still water", "tea", "tropicana",
-            "vimto", "water",
-        ]
-    },
-    {
         "category_id": "alcohol",
         "name": "Alcohol",
         "icon": "🍷",
         "keywords": [
-            "ale", "armagnac", "beer", "champagne", "cider", "cocktail",
-            "cognac", "cointreau", "gin", "grappa", "lager", "limoncello",
-            "liqueur", "prosecco", "red wine", "rose wine", "rum",
-            "spirits", "vodka", "whiskey", "whisky", "white wine", "wine",
+            "armagnac", "beers", "cider", "cocktail", "cognac",
+            "cointreau", "gin", "grappa", "limoncello", "liqueur", "prosecco",
+            "red wine", "rose wine", "vodka", "whiskey", "white wine"
         ]
     },
     {
-        "category_id": "pasta-rice",
-        "name": "Pasta & Rice",
-        "icon": "🍝",
+        "category_id": "baby-stuff",
+        "name": "Baby Stuff",
+        "icon": "🍼",
         "keywords": [
-            "boulgur", "corn flour", "couscous", "falafel mix", "flour",
-            "noodle", "oats", "pasta", "porridge oats", "quinoa",
-            "rice", "spaghetti", "taco",
-        ]
-    },
-    {
-        "category_id": "tinned-jarred",
-        "name": "Tinned & Jarred",
-        "icon": "🥫",
-        "keywords": [
-            "baked beans", "beans", "canned tomatoes", "chickpeas",
-            "chopped tomatoes", "coconut milk", "gherkins", "jalapenos",
-            "kidney beans", "lentils", "olives", "peas", "sweetcorn",
-            "tinned tomatoes", "tuna",
-        ]
-    },
-    {
-        "category_id": "sauces-condiments",
-        "name": "Sauces & Condiments",
-        "icon": "🫙",
-        "keywords": [
-            "balsamic sauce", "barbecue sauce", "bbq sauce", "bean sauce",
-            "black bean sauce", "dips", "egg mayo sauce", "garlic sauce",
-            "harissa", "harissa paste", "honey", "hot sauce", "jam",
-            "ketchup", "marinade", "marmalade", "mayo", "mayonnaise",
-            "mustard", "oyster sauce", "peanut butter", "pesto",
-            "red pesto", "sauce", "sriracha", "soy sauce", "stock",
-            "syrup", "tahini", "tomato puree", "tomato sauce",
-            "vinegar", "worcester sauce",
-        ]
-    },
-    {
-        "category_id": "oils-fats",
-        "name": "Oils & Fats",
-        "icon": "🫒",
-        "keywords": [
-            "avocado oil", "coconut oil", "duck fat", "goose fat",
-            "lard", "olive oil", "peanut oil", "rapeseed oil",
-            "sesame oil", "sunflower oil", "truffle oil", "vegetable oil",
+            "aptamil", "baby bottles", "baby food", "baby latch", "baby powder",
+            "kids pencils","pampers", 
+            "pregnancy test", "shoes", "sticky things", "straws", 
+            "toys"
         ]
     },
     {
         "category_id": "baking",
         "name": "Baking",
-        "icon": "🧁",
+        "icon": "🎂",
         "keywords": [
-            "baking powder", "breadcrumbs", "cacao", "cinnamon",
-            "food colour", "sugar", "vanilla", "yeast",
+            "cacao", "cake equipment", "food colour", "sweets", "vanilla",
+            "yeast"
         ]
     },
     {
-        "category_id": "spices",
-        "name": "Spices",
-        "icon": "🌶️",
+        "category_id": "barbecue",
+        "name": "Barbecue",
+        "icon": "🔥",
         "keywords": [
-            "black pepper", "cajun seasoning", "cayenne pepper",
-            "chilli paste", "curry powder", "garlic granules",
-            "garlic paste", "ginger paste", "ground coriander",
-            "ground cumin", "ground masala", "mixed spice", "mustard seeds",
-            "onion granules", "oregano", "paprika", "saffron", "salt",
-            "smoked paprika", "spice", "turmeric", "white pepper",
+            "bbq tray"
         ]
     },
     {
-        "category_id": "snacks",
-        "name": "Snacks & Confectionery",
-        "icon": "🍫",
+        "category_id": "berries",
+        "name": "Berries",
+        "icon": "🫐",
         "keywords": [
-            "almond", "antipasti platter", "biscuits", "bread sticks",
-            "cashew", "cereal bar", "chocolate", "cookies", "crackers",
-            "crisps", "dairy milk", "danish pastry", "dessert",
-            "doughnut", "doritos", "eclairs", "haribo", "jelly",
-            "kit kat", "kitkat", "madeleines", "mars", "mikado",
-            "mints", "mixed nuts", "muffin", "nakd", "nuts",
-            "peanut", "pistachio", "popcorn", "pringles", "protein bar",
-            "pudding", "rice ball", "shortbread", "snickers", "spearmint",
-            "sunflower seeds", "sweets", "twix", "walnut",
+            "blueberries", "cherry", "grapes", "raspberries", "strawberries",
         ]
     },
     {
-        "category_id": "ready-meals",
-        "name": "Ready Meals & Deli",
-        "icon": "🍱",
+        "category_id": "business",
+        "name": "Business",
+        "icon": "💼",
         "keywords": [
-            "chicken wrap", "coleslaw", "curry", "fishcake", "guacamole",
-            "hummus", "hotpot", "korma", "meal deal", "pate", "pasty",
-            "potato croquettes", "quiche", "ready meal", "sandwich",
-            "sausage roll", "sushi",
+            "sticky notes"
         ]
     },
     {
-        "category_id": "health-beauty",
-        "name": "Health & Beauty",
-        "icon": "💊",
+        "category_id": "canned-food",
+        "name": "Canned Food",
+        "icon": "🥫",
         "keywords": [
-            "bodywash", "cosmetics", "cotton pad", "deodorant",
-            "eyesight", "gillette blades", "glasses", "hand cream",
-            "hand wash", "handwash", "ibuprofen", "lip balm", "lotion",
-            "make up", "medicine", "menstrual wings", "moisturiser",
-            "mouthwash", "nail polish", "nasal spray", "paracetamol",
-            "plaster", "razors", "shampoo", "shaving blade",
-            "shaving cream", "shower gel", "soap", "sunscreen",
-            "supplement", "toothbrush", "toothpaste", "vitamin",
+            "beans", "canned tomatoes", "chickpeas", "coconut milk", "gherkins", "jalapenos",
+            "olives", "sweetcorn",
+            "tuna"
+        ]
+    },
+    {
+        "category_id": "car",
+        "name": "Car",
+        "icon": "🚗",
+        "keywords": [
+            "gas", "screenwash", "washing"
         ]
     },
     {
@@ -279,61 +104,309 @@ CATEGORIES = [
         "name": "Cleaning",
         "icon": "🧹",
         "keywords": [
-            "bin bags", "bleach", "cleaning liquid", "clingfilm",
-            "dettol", "dishwasher salt", "dishwasher tablets", "domestos",
-            "fabric softener", "fairy", "fairy liquid", "gloves",
-            "hairspray", "kitchen foil", "kitchen roll", "kitchen towel",
-            "oven cleaner", "rinse aid", "scourer", "sponge", "spray",
-            "tissue", "tissue paper", "toilet cleaner", "toilet paper",
-            "toilet roll", "washing liquid", "washing powder",
-            "washing up", "window cleaner", "wipes",
-        ]
-    },
-    {
-        "category_id": "homewares",
-        "name": "Homewares",
-        "icon": "🏠",
-        "keywords": [
-            "angle bracket", "bed sheet", "bowl", "bungee cord", "candle",
-            "coaster", "cooking dish", "cup", "cutlery", "decoration",
-            "french press", "furniture", "hangers", "house things",
-            "ice tray", "ironing board", "kitchen utensils", "kitchenware",
-            "lamp", "microwave", "mixer", "mug", "paper cups", "pillows",
-            "plant", "plastic bags", "plates", "ruler", "scissors",
-            "screws", "slippers", "table mats", "thermos", "toilet brush",
-            "wine pourers", "wooden cutlery",
+            "cleaning liquid", "domestos blue", "fairy liquid", "gloves", "hairspray", "kitchen towel",
+            "oven cleaning", "scourer", "sponge", "spray", "tissue paper",
+            "toilet cleaners", "toilet paper", "washing liquid", "washing powder", "window cleaner", "wipes",
         ]
     },
     {
         "category_id": "clothes",
-        "name": "Clothing",
-        "icon": "👕",
+        "name": "Clothes",
+        "icon": "👗",
         "keywords": [
-            "belt", "blouse", "dress", "pullover", "shirts",
-            "shorts", "socks", "trousers", "underwear",
+            "baby clothes", "belt", "blouse", "clothes", "dress", "pullover",
+            "shirts", "shorts", "socks", "trousers", "underwear"
         ]
     },
     {
-        "category_id": "baby",
-        "name": "Baby & Child",
-        "icon": "👶",
+        "category_id": "coffee",
+        "name": "Coffee",
+        "icon": "☕",
         "keywords": [
-            "aptamil", "baby bottles", "baby food", "baby latch",
-            "baby milk", "baby powder", "baby snack", "baby wipes",
-            "formula", "kids pencils", "nappies", "nappy",
-            "pampers", "pregnancy test", "straws", "toys", "water wipes",
+            "coffee", "coffee drink", "coffee filter", "coffee syrup"
         ]
     },
     {
-        "category_id": "other",
-        "name": "Other",
+        "category_id": "cooking-wine",
+        "name": "Cooking Wine",
+        "icon": "🍾",
+        "keywords": [
+            "chinese wine"
+        ]
+    },
+    {
+        "category_id": "dairy",
+        "name": "Dairy",
+        "icon": "🧀",
+        "keywords": [
+            "almond milk", "ayran", "butter", "buttermilk", "cheese",
+            "cream", "custard cream", "double cream", "eggs", "hazelnut milk", "ice cream",
+            "kefir", "milk", "milk drink", "nut milk", "single cream", "soured cream",
+            "soya milk", "vanilla cream", "whipped cream", "yogurt"
+        ]
+    },
+    {
+        "category_id": "dishwasher",
+        "name": "Dishwasher",
+        "icon": "🫧",
+        "keywords": [
+            "dishwasher salt", "rinse aid"
+        ]
+    },
+    {
+        "category_id": "eat-out",
+        "name": "Eat Out",
+        "icon": "🍽️",
+        "keywords": [
+            "food"
+        ]
+    },
+    {
+        "category_id": "entertainment",
+        "name": "Entertainment",
+        "icon": "🎲",
+        "keywords": [
+            "books", "gambling"
+        ]
+    },
+    {
+        "category_id": "fish",
+        "name": "Fish",
+        "icon": "🐟",
+        "keywords": [
+            "anchovies", "caviar", "cod", "fish", "haddock",
+            "lobster", "mackerel", "mussels", "rainbow trout", "salmon",
+            "sardines", "sea bass", "sea bream", "seafood sticks", "shrimp",
+            "smoked fish", "smoked salmon", "tilapia", "trout"
+        ]
+    },
+    {
+        "category_id": "frozen-food",
+        "name": "Frozen Food",
+        "icon": "🧊",
+        "keywords": [
+            "chips", "dumplings", "fish fingers", "french fries", "frozen fruit",
+            "king prawn", "mixed fruits", "onion rings", "parantha", "pastries", "peas",
+            "prawn", "prawns", "shana paratha", "spring rolls", "squid rings",
+            "vegetable", 
+        ]
+    },
+    {
+        "category_id": "fruits",
+        "name": "Fruits",
+        "icon": "🍎",
+        "keywords": [
+            "apples", "apricot", "apricots", "bananas",
+            "grapefruit", "kiwi", "lemons", "lychee", "mandarines",
+            "mango", "melon", "nectarine", "orange", "oranges", "peach",
+            "pears", "physalis", "pineapple", "plum", "plums", "pomegrade",
+            "pomegrate", "watermelon"
+        ]
+    },
+    {
+        "category_id": "gift",
+        "name": "Gift",
+        "icon": "🎁",
+        "keywords": [
+            "card", "flowers", "greeting card"
+        ]
+    },
+    {
+        "category_id": "greens",
+        "name": "Greens",
+        "icon": "🥬",
+        "keywords": [
+            "babyleaf", "basil", "cavolo nero", "chillies", "chives",
+            "coriander", "curry leaves", "dill", "kale", "mint",
+            "parsley", "pea shoots", "rosemary", "spinach", "thyme"
+        ]
+    },
+    {
+        "category_id": "groceries",
+        "name": "Groceries",
+        "icon": "🛒",
+        "keywords": [
+            "hotpot cailiao",
+        ]
+    },
+    {
+        "category_id": "health",
+        "name": "Health",
+        "icon": "🧴",
+        "keywords": [
+            "bodywash", "cosmetics", "cotton pad", "deodorant", "gillette blades",
+            "hand cream", "handwash", "lotion", "make up", "medicine", "menstrual wings",
+            "mouthwash", "nail polisher", "nail things", "nasal spray", "razors", "shampoo",
+            "shaving blade", "shaving cream", "soap", "toothbrush", "toothbrush parts", "toothpaste",
+            "vitamins"
+        ]
+    },
+    {
+        "category_id": "healthcare",
+        "name": "Healthcare",
+        "icon": "💊",
+        "keywords": [
+            "eyesight", "plasters"
+        ]
+    },
+    {
+        "category_id": "house",
+        "name": "House",
+        "icon": "🏠",
+        "keywords": [
+            "angle bracket", "bamex mixer", "bed sheet", "bowl", "bungee cord",
+            "candle", "candles", "coaster", "cooking dish", "cup",
+            "cutlery", "decoration", "french press", "furniture",
+            "glasses", "glove oven", "hangers", "house things", "ice tray", "iron board",
+            "kitchen outils", "kitchenaid mixer", "kitchenware", "lamp", "marker", "microwave",
+            "mixer", "mug", "paper cups", "pillows", "plant", "plastic bags",
+            "plates", "printing paper", "ruler", "scissors", "screws",
+            "single bbq", "slippers", "sewing thread", "table mats", "thermos",
+            "toilet brush", "toilet refreshener", "wine pourers", "wooden cutlery set"
+        ]
+    },
+    {
+        "category_id": "juice",
+        "name": "Juice",
+        "icon": "🧃",
+        "keywords": [
+            "apple juice", "innocent juice", "orange juice", "smoothie"
+        ]
+    },
+    {
+        "category_id": "meat",
+        "name": "Meat",
+        "icon": "🥩",
+        "keywords": [
+            "bacon", "beef", "chicken", "duck", "duck legs",
+            "garlic sausage", "goat", "ham", "lamb", "meat",
+            "pork", "salami", "sausage"
+        ]
+    },
+    {
+        "category_id": "oil",
+        "name": "Oil",
+        "icon": "🫙",
+        "keywords": [
+            "avocado oil", "beef oil", "duck fat", "goose fat", "lard", "olive oil",
+            "other oil", "peanut oil", "pork oil", "rapseed oil", "sesame oil",
+            "sunflower oil", "truffle oil", "vegetable oil"
+        ]
+    },
+    {
+        "category_id": "others",
+        "name": "Others",
         "icon": "📦",
         "keywords": [
-            "aluminium foil", "baking bags", "baking paper", "batteries",
-            "cereals", "diffuser", "food bags", "golden syrup",
-            "ice cubes", "membership renewal", "plastic plates",
-            "roasting bags", "rope", "seeds", "trashbag", "water filter",
-            "wrap film",
+            "aluminium foil", "aussie contnr", "bags", "baking bags", "baking paper", "balloon",
+            "batteries", "brita mxtra", "cereals", "diffuser",
+            "food bags", "golden syrup", "hotpot balls", "ice cubes", "membership renewal", "mineral water",
+            "plastic plates", "roasting bags", "rope", "seeds",
+            "sparkling water", "tea", "trashbag", "vinegar", "water", "water filter",
+            "wrap film", "wrapping paper"
+        ]
+    },
+    {
+        "category_id": "porridge",
+        "name": "Porridge",
+        "icon": "🥣",
+        "keywords": [
+            "oats"
+        ]
+    },
+    {
+        "category_id": "prepared-food",
+        "name": "Prepared Food",
+        "icon": "🍱",
+        "keywords": [
+            "breaded chicken", "breaded fish", "chicken wrap",
+            "fishcake", "korma", "pate", "pizza", "potato croquettes", "sausage roll",
+            "turkey"
+        ]
+    },
+    {
+        "category_id": "salad",
+        "name": "Salad",
+        "icon": "🥗",
+        "keywords": [
+            "lettuce", "rocket", "salad", "wild rocket"
+        ]
+    },
+    {
+        "category_id": "sauce",
+        "name": "Sauce",
+        "icon": "🫙",
+        "keywords": [
+            "balsamic sauce", "barbecue sauce", "bbq sauce", "bean sauce", "black bean sauce", "dips",
+            "egg mayo sauce", "garlic sauce", "greek sauce", "gruziya sauce", "harissa", "harissa paste",
+            "honey", "hot sauce", "hotpot sauce", "jam", "jamaican sauce", "ketchup",
+            "marinade", "mayo", "mustard", "oyster sauce", "pesto", "pesto sauce",
+            "red pesto", "sauce", "siracha", "soup mix", "soy sauce", "soya sauce",
+            "spicy sauce", "syrup", "tahini", "tahini paste", "tomato puree",
+            "tartare", "thai paste", "thai sauce", "tomato pasta", "tomato sauce", "worcester sauce",
+            "yutaka sauce"
+        ]
+    },
+    {
+        "category_id": "snacks",
+        "name": "Snacks",
+        "icon": "🍿",
+        "keywords": [
+            "antipasti platter", "biscuits", "bread sticks", "cake", 
+            "chocolate", "cookies", "cracker", "crackers", "crisps", 
+            "danish pastry", "desert", "doughnut", "eclairs", "hotpot fast food", 
+            "jelly", "kitkat", "madeleines", "mikado", "mints", "muffin",
+            "muffins", "nuts", "peanuts", "pistachios", "popcorn",
+            "pringles", "pudding", "rice ball", "shortbread", "spearmint", "sunflower seeds",
+        ]
+    },
+    {
+        "category_id": "soft-drinks",
+        "name": "Soft Drinks",
+        "icon": "🥤",
+        "keywords": [
+            "coke", "dr pepper", "energy drink", "iron bru", "kombucha", "kombusha",
+            "lemon&turmeric", "lemonade", "monster", "vimto"
+        ]
+    },
+    {
+        "category_id": "spice",
+        "name": "Spice",
+        "icon": "🌶️",
+        "keywords": [
+            "black pepper", "bread crumbs", "cajun seasoning", "cayenne pepper", "chilli paste", "chips spices",
+            "curry", "curry powder", "doujiang", "garlic granules", "garlic paste",
+            "ginger paste", "ground coriander", "ground cumin", "ground masala", "hot spice", "hotpot spice",
+            "mixed spice", "mustard seeds", "onion granules", "oregano", "paprika",
+            "saffron", "salt", "smoked paprika", "spices mix",
+            "sriracha", "stock", "sugar", "toban djan", "turmeric", "white pepper",
+        ]
+    },
+    {
+        "category_id": "starchy-food",
+        "name": "Starchy Food",
+        "icon": "🍞",
+        "keywords": [
+            "boulgur", "bread", "corn flour",
+            "croissant", "falafel mix", "flour", "noodles",
+            "pain au chocolat", "pasta", "rice", "taco", "wrap"
+        ]
+    },
+    {
+        "category_id": "vegetable",
+        "name": "Vegetable",
+        "icon": "🥦",
+        "keywords": [
+            "asparagus", "aubergine", "avocados",
+            "beetroot", "broccoli", "brussel sprouts", "butternut squash", "cabbage", "carrots",
+            "cauliflower", "celery", "corn",
+            "courgette", "cucumber", "garlic", "garlic root", "ginger", "green lentils",
+            "kidney beans", "leeks", "lentils", "lime",
+            "lotus roots", "mushrooms", "okra", "onion",
+            "pak choi", "parsnip",
+            "peppers", "potatoes", "pumpkin", "radish",
+            "red pepper", "shallots", "spring onion", "squash", "swede",
+            "sweet potatoes", "tofu", "tomatoes", "turnip", "vegetable selection"
         ]
     },
 ]

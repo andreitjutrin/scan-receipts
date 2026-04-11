@@ -1,11 +1,11 @@
-﻿"""
+"""
 DynamoDB helpers shared by all Lambda functions.
 Implements hybrid store-scoped + global fallback mapping lookups.
 
 Confidence thresholds (v4 agreed):
   >= 0.92  silent, confident mapping
-  0.75â€"0.91 flag review, tentative mapping
-  0.50â€"0.74 flag review, no mapping written (too uncertain to learn from)
+  0.75–0.91 flag review, tentative mapping
+  0.50–0.74 flag review, no mapping written (too uncertain to learn from)
   < 0.50   unknown, no mapping written
 """
 
@@ -15,7 +15,7 @@ from datetime import datetime, timezone
 from typing import Optional
 
 import boto3
-from boto3.dynamodb.conditions import Key
+from boto3.dynamodb.conditions import Attr, Key
 from decimal import Decimal
 
 from models import (
@@ -31,9 +31,10 @@ ITEMS_TABLE      = os.environ["ITEMS_TABLE"]
 MAPPINGS_TABLE   = os.environ["MAPPINGS_TABLE"]
 CATEGORIES_TABLE = os.environ["CATEGORIES_TABLE"]
 RETAILERS_TABLE  = os.environ["RETAILERS_TABLE"]
+ALERT_TOPIC_ARN  = os.environ.get("ALERT_TOPIC_ARN", "")  # SNS topic for cost alerts
 ITEM_TYPES_TABLE = os.environ.get("ITEM_TYPES_TABLE", "")
 IMAGES_BUCKET    = os.environ.get("IMAGES_BUCKET", "")
-ALERT_TOPIC_ARN  = os.environ.get("ALERT_TOPIC_ARN", "")
+STARLING_TABLE   = os.environ.get("STARLING_TABLE", "")
 
 GLOBAL_STORE = "global"
 
@@ -116,6 +117,134 @@ def list_receipts(user_id: str = "default",
     return [_decimals_to_float(i) for i in items]
 
 
+def get_receipts_summary(user_id: str = "default") -> dict:
+    """Lightweight dashboard summary — counts + latest receipt. Uses ProjectionExpression
+    to minimise data transfer (no large fields like s3_key, error_message, etc.)."""
+    table = db().Table(RECEIPTS_TABLE)
+    kwargs = {
+        "IndexName": "UserDateIndex",
+        "KeyConditionExpression": Key("user_id").eq(user_id),
+        "ScanIndexForward": False,
+        "ProjectionExpression": "#rid, #st, #ta, #ex, #rn, #ri, #rd, #ic",
+        "ExpressionAttributeNames": {
+            "#rid": "receipt_id",
+            "#st":  "status",
+            "#ta":  "total_amount",
+            "#ex":  "exported_to_excel",
+            "#rn":  "retailer_name",
+            "#ri":  "retailer_id",
+            "#rd":  "receipt_date",
+            "#ic":  "item_count",
+        }
+    }
+    items = []
+    while True:
+        resp = table.query(**kwargs)
+        items.extend(resp.get("Items", []))
+        if not resp.get("LastEvaluatedKey"):
+            break
+        kwargs["ExclusiveStartKey"] = resp["LastEvaluatedKey"]
+    items = [_decimals_to_float(i) for i in items]
+    total        = len(items)
+    needs_review = sum(1 for i in items if i.get("status") == "needs_review")
+    exported     = sum(1 for i in items if i.get("exported_to_excel"))
+    spend        = 0.0
+    for i in items:
+        try:
+            spend += float(str(i.get("total_amount") or "0").replace("£", "").replace(",", ""))
+        except (ValueError, TypeError):
+            pass
+    latest = items[0] if items else None  # most recent (ScanIndexForward=False)
+    return {
+        "total":        total,
+        "needs_review": needs_review,
+        "exported":     exported,
+        "total_spend":  f"£{spend:.2f}",
+        "latest":       latest,
+    }
+
+
+def list_receipts_page(user_id: str = "default",
+                       before: str = None,
+                       days: int = 3) -> dict:
+    """Return receipts in a date window for paginated list view.
+    `before` is exclusive upper bound (YYYY-MM-DD); defaults to tomorrow so today is included.
+    Returns receipts + next_cursor (start of this window) + has_more flag."""
+    from datetime import date, timedelta
+    today = date.today()
+    end   = date.fromisoformat(before) if before else today + timedelta(days=1)
+    start = end - timedelta(days=days)
+    table = db().Table(RECEIPTS_TABLE)
+    kwargs = {
+        "IndexName": "UserDateIndex",
+        "KeyConditionExpression": (
+            Key("user_id").eq(user_id) &
+            Key("receipt_date").between(start.isoformat(),
+                                        (end - timedelta(days=1)).isoformat())
+        ),
+        "ScanIndexForward": False,
+        "ProjectionExpression": "#rid, #st, #ta, #ex, #rn, #ri, #rd, #ic",
+        "ExpressionAttributeNames": {
+            "#rid": "receipt_id",
+            "#st":  "status",
+            "#ta":  "total_amount",
+            "#ex":  "exported_to_excel",
+            "#rn":  "retailer_name",
+            "#ri":  "retailer_id",
+            "#rd":  "receipt_date",
+            "#ic":  "item_count",
+        }
+    }
+    items = []
+    while True:
+        resp = table.query(**kwargs)
+        items.extend(resp.get("Items", []))
+        if not resp.get("LastEvaluatedKey"):
+            break
+        kwargs["ExclusiveStartKey"] = resp["LastEvaluatedKey"]
+
+    # Also scan for needs_review receipts that may have a missing/malformed date
+    # (they won't appear in the date-range query above)
+    seen_ids = {i["receipt_id"]["S"] if isinstance(i.get("receipt_id"), dict) else i.get("receipt_id") for i in items}
+    review_resp = table.scan(
+        FilterExpression=Attr("user_id").eq(user_id) & Attr("status").eq("needs_review"),
+        ProjectionExpression="#rid, #st, #ta, #ex, #rn, #ri, #rd, #ic",
+        ExpressionAttributeNames={
+            "#rid": "receipt_id",
+            "#st":  "status",
+            "#ta":  "total_amount",
+            "#ex":  "exported_to_excel",
+            "#rn":  "retailer_name",
+            "#ri":  "retailer_id",
+            "#rd":  "receipt_date",
+            "#ic":  "item_count",
+        }
+    )
+    for r in review_resp.get("Items", []):
+        rid = r.get("receipt_id") if not isinstance(r.get("receipt_id"), dict) else r["receipt_id"]["S"]
+        if rid not in seen_ids:
+            items.append(r)
+
+    # Check if there are any receipts older than this window (one cheap Limit=1 query)
+    check_kwargs = {
+        "IndexName": "UserDateIndex",
+        "KeyConditionExpression": (
+            Key("user_id").eq(user_id) &
+            Key("receipt_date").lt(start.isoformat())
+        ),
+        "Limit": 1,
+        "ScanIndexForward": False,
+        "ProjectionExpression": "#rid",
+        "ExpressionAttributeNames": {"#rid": "receipt_id"},
+    }
+    has_more = len(table.query(**check_kwargs).get("Items", [])) > 0
+    return {
+        "receipts":    [_decimals_to_float(i) for i in items],
+        "next_cursor": start.isoformat(),
+        "has_more":    has_more,
+    }
+
+
 def delete_receipt(receipt_id: str):
     db().Table(RECEIPTS_TABLE).delete_item(Key={"receipt_id": receipt_id})
 
@@ -124,7 +253,7 @@ def check_and_increment_process_count(receipt_id: str) -> bool:
     """
     Cost safeguard: atomically check and increment process_count.
     Returns True if processing is allowed (count was < MAX_PROCESS_COUNT).
-    Returns False if limit reached â€" caller must stop and set status=failed.
+    Returns False if limit reached — caller must stop and set status=failed.
 
     Uses a conditional update so this is safe even if two Lambda instances
     run simultaneously (which shouldn't happen with concurrency=2, but safe anyway).
@@ -210,7 +339,8 @@ def get_items(receipt_id: str) -> list[dict]:
     return sorted(items, key=lambda x: x.get("item_seq", ""))
 
 
-def update_item_category(receipt_id: str, item_seq: str, category: str, record_correction: bool = False):
+def update_item_category(receipt_id: str, item_seq: str, category: str,
+                         item_type_id: str = None, record_correction: bool = False):
     expr = "SET category = :cat, confirmed = :yes, match_source = :src, updated_at = :ts"
     vals = {
         ":cat": category,
@@ -218,6 +348,9 @@ def update_item_category(receipt_id: str, item_seq: str, category: str, record_c
         ":src": "manual",
         ":ts":  _now()
     }
+    if item_type_id:
+        expr += ", item_type_id = :iti"
+        vals[":iti"] = item_type_id
     if record_correction:
         expr += ", corrected_at = :cor"
         vals[":cor"] = _now()
@@ -228,8 +361,30 @@ def update_item_category(receipt_id: str, item_seq: str, category: str, record_c
     )
 
 
+def update_item_price(receipt_id: str, item_seq: str, price: str):
+    """Update the price of a single line item."""
+    db().Table(ITEMS_TABLE).update_item(
+        Key={"receipt_id": receipt_id, "item_seq": item_seq},
+        UpdateExpression="SET price = :p",
+        ExpressionAttributeValues={":p": price},
+    )
+
+
+def delete_item(receipt_id: str, item_seq: str):
+    """Delete a single line item."""
+    db().Table(ITEMS_TABLE).delete_item(
+        Key={"receipt_id": receipt_id, "item_seq": item_seq}
+    )
+
+
+def replace_item(receipt_id: str, item: dict):
+    """Replace or create a single item record (used for split operation)."""
+    clean = _floats_to_decimal(item)
+    db().Table(ITEMS_TABLE).put_item(Item={"receipt_id": receipt_id, **clean})
+
+
 def delete_items(receipt_id: str):
-    """Delete all items for a receipt â€" used before reprocessing."""
+    """Delete all items for a receipt — used before reprocessing."""
     items = get_items(receipt_id)
     table = db().Table(ITEMS_TABLE)
     with table.batch_writer() as batch:
@@ -241,11 +396,11 @@ def delete_items(receipt_id: str):
 
 
 # =============================================================================
-# MAPPINGS â€" hybrid store-scoped + global fallback
+# MAPPINGS — hybrid store-scoped + global fallback
 #
 # Key format:  "{store_id}#{normalized_name}"
-#   "tesco#smoked salmon"   â†' store-scoped
-#   "global#smoked salmon"  â†' global fallback (seeded)
+#   "tesco#smoked salmon"   → store-scoped
+#   "global#smoked salmon"  → global fallback (seeded)
 #
 # One BatchGetItem call checks both store-scoped and global simultaneously.
 # Store-scoped result takes priority over global if both exist.
@@ -279,7 +434,7 @@ def get_mapping_hybrid(store_id: str, normalized_name: str) -> Optional[dict]:
 def promote_mapping_if_ready(mapping_key: str):
     """
     Increment match_count and promote trust level if thresholds are met.
-    tentative â†'(3Ã')â†' confident â†'(5Ã')â†' trusted
+    tentative →(3×)→ confident →(5×)→ trusted
     Trusted mappings are never demoted.
     """
     table = db().Table(MAPPINGS_TABLE)
@@ -309,7 +464,7 @@ def promote_mapping_if_ready(mapping_key: str):
             UpdateExpression="SET trust = :t",
             ExpressionAttributeValues={":t": new_trust}
         )
-        logger.info("Promoted mapping %s â†' %s", mapping_key, new_trust)
+        logger.info("Promoted mapping %s → %s", mapping_key, new_trust)
 
 
 def write_learned_mapping(store_id: str, normalized_name: str,
@@ -322,14 +477,14 @@ def write_learned_mapping(store_id: str, normalized_name: str,
     Stores item_type_id for the two-hop chain; category kept for backwards compat.
 
     Rules:
-    - confidence >= 0.92 â†' write as confident
-    - confidence >= 0.75 â†' write as tentative
-    - confidence <  0.75 â†' do NOT write (too uncertain to learn from)
+    - confidence >= 0.92 → write as confident
+    - confidence >= 0.75 → write as tentative
+    - confidence <  0.75 → do NOT write (too uncertain to learn from)
     - never overwrite a trusted mapping with a fuzzy result
     - never write if store is unknown (don't know which template to update)
     """
     if confidence < THRESHOLD_REVIEW:
-        return  # below 0.75 â€" don't learn from this
+        return  # below 0.75 — don't learn from this
     if not store_id or store_id == "unknown":
         return
 
@@ -357,7 +512,7 @@ def write_learned_mapping(store_id: str, normalized_name: str,
         "created_at":      existing.get("created_at", now) if existing else now,
         "last_seen":       now
     })
-    logger.info("Learned mapping %s â†' %s (%.0f%%, %s)", mapping_key, category, confidence * 100, trust)
+    logger.info("Learned mapping %s → %s (%.0f%%, %s)", mapping_key, category, confidence * 100, trust)
 
 
 def save_correction(store_id: str, normalized_name: str, item_type_id: str, category: str) -> dict:
@@ -365,10 +520,10 @@ def save_correction(store_id: str, normalized_name: str, item_type_id: str, cate
     Save a user correction back to the mappings table.
 
     Behaviour by existing trust level:
-    - trusted + same category  â†' just increment match_count, no change
-    - trusted + different category â†' save conflict flag, return conflict info
-    - confident or tentative â†' overwrite with manual correction (instantly trusted)
-    - missing â†' create new trusted mapping
+    - trusted + same category  → just increment match_count, no change
+    - trusted + different category → save conflict flag, return conflict info
+    - confident or tentative → overwrite with manual correction (instantly trusted)
+    - missing → create new trusted mapping
 
     Returns dict with key 'conflict': True/False
     """
@@ -381,11 +536,11 @@ def save_correction(store_id: str, normalized_name: str, item_type_id: str, cate
 
     if existing and existing.get("trust") == TrustLevel.TRUSTED.value:
         if existing.get("item_type_id", existing.get("category")) == item_type_id:
-            # User confirmed â€" just increment count
+            # User confirmed — just increment count
             promote_mapping_if_ready(mapping_key)
             return {"conflict": False}
         else:
-            # Conflict â€" save it but don't overwrite
+            # Conflict — save it but don't overwrite
             table.update_item(
                 Key={"mapping_key": mapping_key},
                 UpdateExpression="SET conflict_category = :c, conflict_item_type = :it, conflict_at = :ts",
@@ -396,7 +551,7 @@ def save_correction(store_id: str, normalized_name: str, item_type_id: str, cate
             return {"conflict": True, "existing_item_type_id": existing.get("item_type_id"),
                     "existing_category": existing.get("category")}
 
-    # Overwrite or create â€" manual correction is immediately trusted
+    # Overwrite or create — manual correction is immediately trusted
     table.put_item(Item={
         "mapping_key":     mapping_key,
         "store_id":        effective_store,
@@ -417,7 +572,7 @@ def load_store_mappings(store_id: str) -> list[dict]:
     """
     Load ALL mappings for a store via the StoreIndex GSI.
     Called at Lambda cold start to populate the in-memory fuzzy cache.
-    Loads both store-scoped AND global mappings (global needed for Layer 2 fuzzy keywords).
+    Loads both store-scoped AND global mappings.
     """
     table  = db().Table(MAPPINGS_TABLE)
     result = []
@@ -440,12 +595,34 @@ def load_store_mappings(store_id: str) -> list[dict]:
     return result
 
 
+def list_all_mappings(store_id: str = None) -> list[dict]:
+    """Return all mappings, optionally filtered by store_id."""
+    table  = db().Table(MAPPINGS_TABLE)
+    result = []
+    if store_id:
+        kwargs = {
+            "IndexName": "StoreIndex",
+            "KeyConditionExpression": Key("store_id").eq(store_id)
+        }
+        while True:
+            resp = table.query(**kwargs)
+            result.extend(resp.get("Items", []))
+            if not resp.get("LastEvaluatedKey"):
+                break
+            kwargs["ExclusiveStartKey"] = resp["LastEvaluatedKey"]
+    else:
+        kwargs2: dict = {}
+        while True:
+            resp = table.scan(**kwargs2)
+            result.extend(resp.get("Items", []))
+            if not resp.get("LastEvaluatedKey"):
+                break
+            kwargs2["ExclusiveStartKey"] = resp["LastEvaluatedKey"]
+    return result
+
+
 def load_item_types() -> list[dict]:
-    """
-    Scan the ItemTypes table at cold start.
-    Returns list of {item_type_id, category_id, ...} dicts.
-    Used for the two-hop: item_type_id -> category_id resolution.
-    """
+    """Scan ItemTypes table for two-hop category resolution at cold start."""
     if not ITEM_TYPES_TABLE:
         return []
     table  = db().Table(ITEM_TYPES_TABLE)
@@ -457,8 +634,33 @@ def load_item_types() -> list[dict]:
         if not resp.get("LastEvaluatedKey"):
             break
         kwargs["ExclusiveStartKey"] = resp["LastEvaluatedKey"]
-    logger.info("Loaded %d item types at cold start", len(result))
+    logger.info("Loaded %d item types", len(result))
     return result
+
+
+def get_item_type(item_type_id: str) -> Optional[dict]:
+    """Get a single item type by ID."""
+    if not ITEM_TYPES_TABLE or not item_type_id:
+        return None
+    resp = db().Table(ITEM_TYPES_TABLE).get_item(Key={"item_type_id": item_type_id})
+    return resp.get("Item")
+
+
+def save_item_type(item_type_id: str, category_id: str, label: str = None) -> dict:
+    """Create or update an item type entry."""
+    table = db().Table(ITEM_TYPES_TABLE)
+    now   = _now()
+    existing = get_item_type(item_type_id)
+    item = {
+        "item_type_id": item_type_id,
+        "category_id":  category_id,
+        "label":        label or item_type_id,
+        "created_at":   existing.get("created_at", now) if existing else now,
+        "updated_at":   now
+    }
+    table.put_item(Item=item)
+    logger.info("Saved item type %s -> %s", item_type_id, category_id)
+    return item
 
 
 def get_image_presigned_url(s3_key: str, expiry: int = 3600) -> str:
@@ -469,6 +671,71 @@ def get_image_presigned_url(s3_key: str, expiry: int = 3600) -> str:
         Params={"Bucket": IMAGES_BUCKET, "Key": s3_key},
         ExpiresIn=expiry
     )
+
+
+def set_item_expense(receipt_id: str, item_seq: str, is_expense: bool):
+    """Mark or unmark a line item as a personal expense."""
+    db().Table(ITEMS_TABLE).update_item(
+        Key={"receipt_id": receipt_id, "item_seq": item_seq},
+        UpdateExpression="SET is_expense = :v, updated_at = :t",
+        ExpressionAttributeValues={":v": is_expense, ":t": _now()}
+    )
+
+
+def list_expense_items() -> list[dict]:
+    """Return all items marked as expenses, joined with their receipt metadata."""
+    from boto3.dynamodb.conditions import Attr
+
+    # Scan items table for expense items
+    table  = db().Table(ITEMS_TABLE)
+    result = []
+    kwargs: dict = {"FilterExpression": Attr("is_expense").eq(True)}
+    while True:
+        resp = table.scan(**kwargs)
+        result.extend(resp.get("Items", []))
+        if not resp.get("LastEvaluatedKey"):
+            break
+        kwargs["ExclusiveStartKey"] = resp["LastEvaluatedKey"]
+
+    if not result:
+        return []
+
+    # Batch-get unique receipts for date / retailer / s3_key
+    receipt_ids = list({item["receipt_id"] for item in result})
+    receipts: dict = {}
+    for i in range(0, len(receipt_ids), 100):
+        chunk = receipt_ids[i:i + 100]
+        resp = db().batch_get_item(RequestItems={
+            RECEIPTS_TABLE: {"Keys": [{"receipt_id": rid} for rid in chunk]}
+        })
+        for r in resp.get("Responses", {}).get(RECEIPTS_TABLE, []):
+            receipts[r["receipt_id"]] = r
+
+    # Join receipt metadata onto each item
+    enriched = []
+    s3 = boto3.client("s3")
+    for item in result:
+        receipt  = receipts.get(item["receipt_id"], {})
+        s3_key   = receipt.get("s3_key", "")
+        image_url = None
+        if s3_key and IMAGES_BUCKET:
+            try:
+                image_url = s3.generate_presigned_url(
+                    "get_object",
+                    Params={"Bucket": IMAGES_BUCKET, "Key": s3_key},
+                    ExpiresIn=3600
+                )
+            except Exception:
+                pass
+        enriched.append({
+            **item,
+            "receipt_date":   receipt.get("receipt_date", ""),
+            "retailer_name":  receipt.get("retailer_name") or receipt.get("retailer_id", ""),
+            "image_url":      image_url,
+        })
+
+    enriched.sort(key=lambda x: x.get("receipt_date", ""), reverse=True)
+    return enriched
 
 
 # =============================================================================
@@ -506,7 +773,7 @@ def backup_and_append_excel(exports_bucket: str, items: list[dict],
         wb  = openpyxl.load_workbook(io.BytesIO(obj["Body"].read()))
         ws  = wb.active
     except s3.exceptions.NoSuchKey:
-        # First ever run â€" create fresh workbook with headers
+        # First ever run — create fresh workbook with headers
         wb = openpyxl.Workbook()
         ws = wb.active
         ws.title = "Receipts"
@@ -524,7 +791,7 @@ def backup_and_append_excel(exports_bucket: str, items: list[dict],
         logger.info("Backup created: %s", backup)
     except Exception as e:
         logger.error("Failed to create backup %s: %s", backup, e)
-        return False  # abort â€" don't write master if backup failed
+        return False  # abort — don't write master if backup failed
 
     # Step 3: Append new rows (one row per line item)
     receipt_date    = receipt_meta.get("receipt_date", today)
@@ -581,7 +848,7 @@ def restore_backup(exports_bucket: str, backup_filename: str) -> bool:
             CopySource={"Bucket": exports_bucket, "Key": backup_filename},
             Key="master.xlsx"
         )
-        logger.info("Restored %s â†' master.xlsx", backup_filename)
+        logger.info("Restored %s → master.xlsx", backup_filename)
         return True
     except Exception as e:
         logger.error("Failed to restore backup %s: %s", backup_filename, e)
@@ -648,6 +915,30 @@ def _parse_price(price_str):
         return 0.0
 
 
+def _normalize_quantity(qty):
+    """Normalise quantity strings: X4 -> 4, 0.500 kg -> 0.5, 500g -> 500."""
+    import re
+    if not qty:
+        return qty
+    qty = str(qty).strip()
+    # X4, x4, 4X, 4x
+    m = re.match(r'^[xX](\d+\.?\d*)$', qty) or re.match(r'^(\d+\.?\d*)[xX]$', qty)
+    if m:
+        val = float(m.group(1))
+        return int(val) if val == int(val) else val
+    # Number with unit suffix (0.500 kg, 500g, 1.5l, etc.)
+    m = re.match(r'^(\d+\.?\d*)\s*(kg|g|ml|l|oz|lb)$', qty, re.IGNORECASE)
+    if m:
+        val = float(m.group(1))
+        return int(val) if val == int(val) else val
+    # Plain number
+    try:
+        val = float(qty)
+        return int(val) if val == int(val) else val
+    except ValueError:
+        return qty
+
+
 def receipt_export_ready(receipt_id: str) -> bool:
     items = get_items(receipt_id)
     if not items:
@@ -655,10 +946,7 @@ def receipt_export_ready(receipt_id: str) -> bool:
     for item in items:
         needs_review = item.get("needs_review", False)
         confirmed    = item.get("confirmed", False)
-        confidence   = float(item.get("match_confidence", 0))
-        source       = item.get("match_source", "unknown")
-        exact        = source in ("store_exact", "global_exact") and confidence >= 1.0
-        if not exact and not confirmed:
+        if needs_review and not confirmed:
             return False
     return True
 
@@ -675,57 +963,74 @@ def export_receipt_to_excel(receipt_id: str, exports_bucket: str):
 
     s3c = boto3.client("s3")
 
+    HEADERS = [
+        "Date", "Store",
+        "Item Name", "Item Type", "Category",
+        "Price (GBP)", "Quantity",
+        "Exported At", "Receipt ID"
+    ]
+    RID_COL = HEADERS.index("Receipt ID") + 1  # 1-based column index
+
     try:
         obj = s3c.get_object(Bucket=exports_bucket, Key=MASTER_XLSX)
         wb  = load_workbook(_io.BytesIO(obj["Body"].read()))
         ws  = wb.active
-        is_new = False
+        existing_header = [c.value for c in ws[1]]
+        if existing_header != HEADERS:
+            # Legacy or mismatched format — wipe all data and rewrite header
+            ws.delete_rows(1, ws.max_row)
+            is_new = True
+        else:
+            is_new = False
+            # Remove any existing rows for this receipt to prevent duplicates
+            rows_to_delete = [
+                row[0].row for row in ws.iter_rows(min_row=2)
+                if ws.cell(row=row[0].row, column=RID_COL).value == receipt_id
+            ]
+            for row_num in reversed(rows_to_delete):
+                ws.delete_rows(row_num)
     except Exception:
         wb     = Workbook()
         ws     = wb.active
         ws.title = "Grocery Items"
         is_new = True
 
-    HEADERS = [
-        "Date", "Store", "Receipt ID",
-        "Item Name", "Normalised Name",
-        "Category", "Original Category",
-        "Price (GBP)", "Quantity",
-        "Confidence %", "Matched Keyword", "Match Source",
-        "Corrected", "Corrected At", "Exported At"
-    ]
-
-    if is_new or ws.cell(1, 1).value != "Date":
+    if is_new:
         for col, header in enumerate(HEADERS, 1):
             cell = ws.cell(row=1, column=col, value=header)
             cell.font      = Font(bold=True, color="FFFFFF")
             cell.fill      = PatternFill("solid", fgColor="2E4057")
             cell.alignment = Alignment(horizontal="center")
-        widths = [12,15,38,30,25,18,18,10,10,14,25,14,10,20,20]
+        widths = [12, 18, 35, 20, 18, 12, 10, 18, 36]
         for col, width in enumerate(widths, 1):
             ws.column_dimensions[get_column_letter(col)].width = width
 
-    receipt_date = receipt.get("receipt_date", "")
-    store_name   = receipt.get("retailer_name") or receipt.get("retailer_id", "")
-    exported_at  = datetime.now(timezone.utc).strftime("%Y-%m-%d %H:%M")
+    raw_date   = receipt.get("receipt_date", "")
+    store_name = receipt.get("retailer_name") or receipt.get("retailer_id", "")
+    exported_at = datetime.now(timezone.utc).strftime("%Y-%m-%d %H:%M")
 
-    for item in items:
-        conf_pct  = round(float(item.get("match_confidence", 0)) * 100, 1)
-        corrected = "Yes" if item.get("confirmed") and item.get("match_source") == "manual" else "No"
+    # Parse receipt date to a proper date object for consistent Excel formatting
+    receipt_date = raw_date
+    try:
+        from dateutil import parser as _dp
+        s = str(raw_date)
+        dayfirst = not s[:4].isdigit() or s[4:5] not in ("-", "/")
+        receipt_date = _dp.parse(s, dayfirst=dayfirst).date()
+    except Exception:
+        pass
+
+    exportable = [i for i in items if not i.get("is_expense")]
+    for item in exportable:
         ws.append([
-            receipt_date, store_name, receipt_id,
+            receipt_date,
+            store_name,
             item.get("raw_name", ""),
-            item.get("normalized_name", ""),
+            item.get("item_type_id", ""),
             item.get("category", ""),
-            item.get("original_category", ""),
             _parse_price(item.get("price", "0")),
-            item.get("quantity", "1"),
-            conf_pct,
-            item.get("matched_keyword", ""),
-            item.get("match_source", ""),
-            corrected,
-            item.get("corrected_at", ""),
+            _normalize_quantity(item.get("quantity", "1")),
             exported_at,
+            receipt_id,
         ])
 
     buf = _io.BytesIO()
@@ -739,12 +1044,156 @@ def export_receipt_to_excel(receipt_id: str, exports_bucket: str):
     )
 
     now = datetime.now(timezone.utc).isoformat()
-    for item in items:
+    for item in exportable:
         db().Table(ITEMS_TABLE).update_item(
             Key={"receipt_id": receipt_id, "item_seq": item["item_seq"]},
             UpdateExpression="SET exported_to_excel = :t, exported_at = :ts, export_filename = :fn",
             ExpressionAttributeValues={":t": True, ":ts": now, ":fn": MASTER_XLSX}
         )
 
-    logger.info(f"Exported {len(items)} items from {receipt_id} to {MASTER_XLSX}")
+    # Mark receipt-level exported flag (for list view badge)
+    update_receipt(receipt_id, exported_to_excel=True)
+
+    logger.info(f"Exported {len(exportable)} items (skipped {len(items)-len(exportable)} expenses) from {receipt_id} to {MASTER_XLSX}")
     return MASTER_XLSX
+
+
+def remove_receipt_from_excel(receipt_id: str, exports_bucket: str):
+    """Remove all rows for a receipt from master.xlsx. No-op if receipt not found or no Receipt ID column."""
+    from openpyxl import load_workbook
+    s3c = boto3.client("s3")
+    try:
+        obj = s3c.get_object(Bucket=exports_bucket, Key=MASTER_XLSX)
+        wb  = load_workbook(_io.BytesIO(obj["Body"].read()))
+        ws  = wb.active
+    except Exception:
+        return  # no file yet — nothing to remove
+
+    header = [c.value for c in ws[1]]
+    if "Receipt ID" not in header:
+        logger.warning("master.xlsx has no 'Receipt ID' column — skipping Excel cleanup for %s", receipt_id)
+        return
+
+    rid_col = header.index("Receipt ID") + 1  # 1-based
+    rows_to_delete = [
+        row[0].row for row in ws.iter_rows(min_row=2)
+        if ws.cell(row=row[0].row, column=rid_col).value == receipt_id
+    ]
+    for row_num in reversed(rows_to_delete):
+        ws.delete_rows(row_num)
+
+    if not rows_to_delete:
+        logger.info("No rows found in master.xlsx for receipt %s", receipt_id)
+        return
+
+    buf = _io.BytesIO()
+    wb.save(buf)
+    buf.seek(0)
+    s3c.put_object(
+        Bucket=exports_bucket,
+        Key=MASTER_XLSX,
+        Body=buf.getvalue(),
+        ContentType="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"
+    )
+    # Clear receipt-level exported flag
+    try:
+        update_receipt(receipt_id, exported_to_excel=False)
+    except Exception:
+        pass
+    logger.info("Removed %d row(s) for receipt %s from master.xlsx", len(rows_to_delete), receipt_id)
+
+
+# =============================================================================
+# STARLING RECONCILIATION
+# =============================================================================
+
+def get_receipts_for_month(year_month: str) -> list[dict]:
+    """Return all receipts whose receipt_date falls in YYYY-MM.
+    Scans all receipts and filters in Python to handle varied date formats."""
+    from dateutil import parser as _dp
+    year, mo = map(int, year_month.split("-"))
+    table    = db().Table(RECEIPTS_TABLE)
+    result   = []
+    kwargs: dict = {}
+    while True:
+        resp = table.scan(**kwargs)
+        result.extend(resp.get("Items", []))
+        if not resp.get("LastEvaluatedKey"):
+            break
+        kwargs["ExclusiveStartKey"] = resp["LastEvaluatedKey"]
+    filtered = []
+    for item in result:
+        raw = item.get("receipt_date", "")
+        if not raw or str(raw) == "None":
+            continue
+        try:
+            s = str(raw)
+            # ISO format (YYYY-MM-DD…) must NOT use dayfirst — it would swap month/day
+            dayfirst = not s[:4].isdigit() or s[4:5] not in ("-", "/")
+            d = _dp.parse(s, dayfirst=dayfirst)
+            if d.year == year and d.month == mo:
+                filtered.append(_decimals_to_float(item))
+        except Exception:
+            continue
+    return filtered
+
+
+def save_starling_transactions(month: str, transactions: list[dict]):
+    """Overwrite all Starling transactions for a month in StarlingTable."""
+    if not STARLING_TABLE:
+        return
+    table = db().Table(STARLING_TABLE)
+    # Delete existing rows for this month first
+    existing = get_starling_transactions(month)
+    with table.batch_writer() as batch:
+        for txn in existing:
+            batch.delete_item(Key={"month": month, "transaction_id": txn["transaction_id"]})
+    # Write new rows
+    with table.batch_writer() as batch:
+        for txn in transactions:
+            batch.put_item(Item=_floats_to_decimal({**txn, "month": month}))
+    logger.info("Saved %d Starling transactions for %s", len(transactions), month)
+
+
+def get_starling_transactions(month: str) -> list[dict]:
+    """Return all cached Starling transactions for a month, newest first."""
+    if not STARLING_TABLE:
+        return []
+    table  = db().Table(STARLING_TABLE)
+    kwargs = {"KeyConditionExpression": Key("month").eq(month)}
+    items  = []
+    while True:
+        resp = table.query(**kwargs)
+        items.extend(resp.get("Items", []))
+        if not resp.get("LastEvaluatedKey"):
+            break
+        kwargs["ExclusiveStartKey"] = resp["LastEvaluatedKey"]
+    return sorted(
+        [_decimals_to_float(i) for i in items],
+        key=lambda x: x.get("date", ""),
+        reverse=True,
+    )
+
+
+def update_starling_transaction_match(
+    month: str, transaction_id: str, receipt_id, match_status: str,
+    receipt_amount=None, diff_amount=None
+):
+    """Update the match fields on a single Starling transaction (manual link/unlink)."""
+    if not STARLING_TABLE:
+        return
+    table = db().Table(STARLING_TABLE)
+    expr_names  = {
+        "#ms": "match_status", "#mr": "matched_receipt_id",
+        "#ra": "receipt_amount", "#da": "diff_amount", "#sa": "synced_at",
+    }
+    expr_values = {
+        ":ms": match_status, ":mr": receipt_id,
+        ":ra": receipt_amount, ":da": diff_amount, ":sa": _now(),
+    }
+    table.update_item(
+        Key={"month": month, "transaction_id": transaction_id},
+        UpdateExpression="SET #ms = :ms, #mr = :mr, #ra = :ra, #da = :da, #sa = :sa",
+        ExpressionAttributeNames=expr_names,
+        ExpressionAttributeValues=_floats_to_decimal(expr_values),
+    )

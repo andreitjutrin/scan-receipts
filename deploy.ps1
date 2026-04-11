@@ -24,7 +24,7 @@
 param(
     [Parameter(Position=0)]
     [ValidateSet("help","check","install","build","deploy","seed",
-                 "info","logs","clean","nuke")]
+                 "info","upload-frontend","logs","clean","nuke")]
     [string]$Command = "help",
 
     # -Env prod  to target production instead of dev
@@ -88,6 +88,9 @@ function Show-Help {
 
   INFORMATION
   .\deploy.ps1 info               Show your API URL, bucket names, table names
+
+  FRONTEND
+  .\deploy.ps1 upload-frontend    Generate config.js and upload HTML to S3 + invalidate CloudFront
 
   LOGS
   .\deploy.ps1 logs               Tail receipt processor logs (live)
@@ -300,6 +303,69 @@ function Show-Info {
 }
 
 # =============================================================================
+# UPLOAD FRONTEND
+# =============================================================================
+function Upload-Frontend {
+    Write-Title "Uploading Frontend ($Env)"
+    $awsArgs = (AwsArgs).Split(" ")
+
+    Write-Step "Reading stack outputs..."
+    $outputsJson = aws cloudformation describe-stacks `
+        --stack-name (StackName) @awsArgs `
+        --query "Stacks[0].Outputs" `
+        --output json 2>&1
+
+    if ($LASTEXITCODE -ne 0) {
+        Write-Err "Stack not found. Have you run .\deploy.ps1 deploy yet?"
+        return
+    }
+
+    $outputs = $outputsJson | ConvertFrom-Json
+    function GetOutput($key) {
+        $o = $outputs | Where-Object { $_.OutputKey -eq $key }
+        if (-not $o) { Write-Err "Missing stack output: $key"; exit 1 }
+        return $o.OutputValue
+    }
+
+    $apiUrl     = GetOutput "ApiUrl"
+    $cfUrl      = GetOutput "CloudFrontUrl"
+    $distId     = GetOutput "CloudFrontDistributionId"
+    $cognitoUrl = GetOutput "CognitoHostedUiDomain"
+    $clientId   = GetOutput "CognitoClientId"
+    $bucket     = GetOutput "FrontendBucketName"
+
+    Write-OK "Stack outputs read"
+
+    Write-Step "Generating config.js..."
+    $configJs = @"
+window.APP_CONFIG = {
+  apiUrl: "$apiUrl",
+  cognitoUrl: "$cognitoUrl",
+  clientId: "$clientId",
+  redirectUri: "$cfUrl"
+};
+"@
+    $configJs | Set-Content -Path "config.js" -Encoding UTF8
+    Write-OK "config.js generated"
+
+    Write-Step "Uploading to S3 bucket: $bucket..."
+    $awsStr = AwsArgs
+    Run "aws s3 cp receipt-scanner-app.html s3://$bucket/receipt-scanner-app.html --content-type text/html $awsStr"
+    Run "aws s3 cp config.js s3://$bucket/config.js --content-type application/javascript $awsStr"
+
+    Remove-Item "config.js" -ErrorAction SilentlyContinue
+    Write-OK "Files uploaded"
+
+    Write-Step "Invalidating CloudFront cache ($distId)..."
+    Run "aws cloudfront create-invalidation --distribution-id $distId --paths '/*' $awsStr"
+    Write-OK "Cache invalidation requested"
+
+    Write-Host ""
+    Write-OK "Frontend deployed!"
+    Write-Host "  URL: $cfUrl" -ForegroundColor Cyan
+}
+
+# =============================================================================
 # LOGS
 # =============================================================================
 function Tail-Logs {
@@ -371,6 +437,7 @@ switch ($Command) {
     "deploy"  { Deploy-App   }
     "seed"    { Seed-DB      }
     "info"    { Show-Info    }
+    "upload-frontend" { Upload-Frontend }
     "logs"    { Tail-Logs    }
     "clean"   { Clean-Build  }
     "nuke"    { Nuke-Stack   }
