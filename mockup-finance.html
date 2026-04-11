@@ -1,0 +1,545 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Receipt Scanner — Finance Dashboard Mockup</title>
+<link href="https://fonts.googleapis.com/css2?family=DM+Sans:wght@300;400;500;600&family=DM+Mono:wght@400;500&display=optional" rel="stylesheet">
+<style>
+:root {
+  --bg:#F7F6F3; --surface:#FFFFFF; --surface2:#F0EFEB; --border:#E5E3DC;
+  --text:#1A1916; --text2:#6B6860; --text3:#9B9A94;
+  --accent:#2A6049; --accent-light:#EAF2EE;
+  --warning:#D68910; --warning-light:#FEF9E7;
+  --danger:#C0392B; --danger-light:#FDECEA;
+  --success:#27AE60; --success-light:#EAFAF1;
+  --finance:#1B6CA8; --finance-light:#E8F4FD; --finance-border:#A8D4F5;
+  --starling:#6C3CE1; --starling-light:#F0EBFF;
+  --shadow:0 1px 3px rgba(0,0,0,0.06);
+  --radius:10px; --radius-sm:6px;
+}
+*{box-sizing:border-box;margin:0;padding:0}
+body{font-family:'DM Sans',sans-serif;background:var(--bg);color:var(--text);min-height:100vh;font-size:14px;line-height:1.5}
+.app{display:flex;height:100vh;overflow:hidden}
+
+/* Sidebar */
+.sidebar{width:220px;flex-shrink:0;background:var(--surface);border-right:1px solid var(--border);display:flex;flex-direction:column}
+.sidebar-logo{padding:20px 20px 16px;border-bottom:1px solid var(--border)}
+.logo-mark{display:flex;align-items:center;gap:10px}
+.logo-icon{width:32px;height:32px;background:var(--accent);border-radius:8px;display:flex;align-items:center;justify-content:center;color:white;font-size:16px}
+.logo-text{font-size:15px;font-weight:600;letter-spacing:-0.3px}
+.logo-sub{font-size:11px;color:var(--text3)}
+.sidebar-nav{flex:1;padding:12px 10px;display:flex;flex-direction:column;gap:2px}
+.nav-item{display:flex;align-items:center;gap:10px;padding:8px 10px;border-radius:var(--radius-sm);cursor:pointer;color:var(--text2);font-size:13.5px;font-weight:500;transition:all 0.15s;border:none;background:none;width:100%;text-align:left;font-family:inherit}
+.nav-item:hover{background:var(--surface2);color:var(--text)}
+.nav-item.active{background:var(--finance-light);color:var(--finance)}
+.nav-divider{height:1px;background:var(--border);margin:8px 0}
+.sidebar-footer{padding:12px 10px;border-top:1px solid var(--border)}
+
+/* Main */
+.main{flex:1;overflow:hidden;display:flex;flex-direction:column}
+.topbar{height:56px;background:var(--surface);border-bottom:1px solid var(--border);display:flex;align-items:center;padding:0 24px;gap:12px;flex-shrink:0}
+.topbar-title{font-size:15px;font-weight:600;flex:1}
+.content{flex:1;overflow-y:auto;padding:24px}
+
+/* Buttons */
+.btn{display:inline-flex;align-items:center;gap:6px;padding:7px 14px;border-radius:var(--radius-sm);font-family:inherit;font-size:13px;font-weight:500;cursor:pointer;border:none;transition:all 0.15s;white-space:nowrap}
+.btn-primary{background:var(--finance);color:white}.btn-primary:hover{background:#155a8f}
+.btn-secondary{background:var(--surface);color:var(--text2);border:1px solid var(--border)}.btn-secondary:hover{background:var(--surface2)}
+.btn-success{background:var(--success);color:white}.btn-success:hover{background:#219150}
+.btn-sm{padding:5px 10px;font-size:12px}
+.btn-xs{padding:3px 8px;font-size:11px;border-radius:4px}
+
+/* Stats */
+.stats-row{display:grid;grid-template-columns:repeat(4,1fr);gap:12px;margin-bottom:20px}
+.stat-card{background:var(--surface);border:1px solid var(--border);border-radius:var(--radius);padding:14px 18px;box-shadow:var(--shadow)}
+.stat-label{font-size:10px;font-weight:600;color:var(--text3);text-transform:uppercase;letter-spacing:0.5px;margin-bottom:6px}
+.stat-amount{font-size:20px;font-weight:600;font-family:'DM Mono',monospace;letter-spacing:-0.5px}
+.stat-count{font-size:12px;color:var(--text3);margin-top:3px}
+.stat-card.is-total{border-color:var(--finance-border)}.stat-card.is-total .stat-amount{color:var(--finance)}
+.stat-card.is-matched{border-color:#A9DFBF;background:var(--success-light)}.stat-card.is-matched .stat-amount{color:var(--success)}
+.stat-card.is-review{border-color:#F0D09A;background:var(--warning-light)}.stat-card.is-review .stat-amount{color:var(--warning)}
+.stat-card.is-unmatched .stat-amount{color:var(--text3)}
+
+/* Needs review panel */
+.review-panel{background:var(--warning-light);border:1px solid #F0D09A;border-radius:var(--radius);margin-bottom:20px;overflow:hidden}
+.review-header{display:flex;align-items:center;gap:10px;padding:12px 16px;cursor:pointer;user-select:none}
+.review-header-title{font-size:13px;font-weight:600;color:var(--warning);flex:1}
+.review-toggle{font-size:12px;color:var(--warning);font-weight:600}
+.review-body{display:none;padding:0 16px 16px}
+.review-body.open{display:block}
+.review-card{background:var(--surface);border:1px solid var(--border);border-radius:var(--radius-sm);padding:14px;margin-top:12px}
+.review-card-title{font-size:12px;font-weight:600;color:var(--text3);text-transform:uppercase;letter-spacing:0.4px;margin-bottom:10px}
+.review-sides{display:flex;align-items:flex-start;gap:14px}
+.review-email-side{flex:0 0 200px;background:var(--finance-light);border:1px solid var(--finance-border);border-radius:var(--radius-sm);padding:10px 12px}
+.side-label{font-size:10px;font-weight:700;color:var(--finance);text-transform:uppercase;letter-spacing:0.5px;margin-bottom:6px}
+.review-candidates{flex:1}
+.candidate-row{display:flex;align-items:center;gap:10px;padding:8px 10px;border:1px solid var(--border);border-radius:var(--radius-sm);margin-bottom:6px;background:var(--surface2)}
+.candidate-info{flex:1;font-size:13px}
+.review-actions{display:flex;gap:8px;margin-top:10px}
+
+/* Filter bar */
+.filter-bar{display:flex;align-items:center;gap:8px;margin-bottom:16px;flex-wrap:wrap}
+.filter-btn{padding:5px 14px;border-radius:20px;border:1px solid var(--border);background:var(--surface);color:var(--text2);font-size:12px;font-weight:500;cursor:pointer;font-family:inherit;transition:all 0.15s}
+.filter-btn:hover{border-color:var(--finance);color:var(--finance)}
+.filter-btn.active{background:var(--finance);border-color:var(--finance);color:white}
+.filter-spacer{flex:1}
+
+/* Manual entry form */
+.manual-form{background:var(--surface);border:1px solid var(--finance-border);border-radius:var(--radius);padding:16px;margin-bottom:16px;display:none}
+.manual-form.open{display:block}
+.form-title{font-size:13px;font-weight:600;color:var(--finance);margin-bottom:12px}
+.form-row{display:grid;grid-template-columns:1fr 1fr 1fr;gap:12px;margin-bottom:12px}
+.form-group{display:flex;flex-direction:column;gap:4px}
+.form-label{font-size:11px;font-weight:600;color:var(--text3);text-transform:uppercase;letter-spacing:0.4px}
+.form-input{padding:7px 10px;border:1px solid var(--border);border-radius:var(--radius-sm);font-family:inherit;font-size:13px;background:var(--surface);color:var(--text)}
+.form-input:focus{outline:none;border-color:var(--finance)}
+.form-actions{display:flex;gap:8px}
+
+/* Transaction table */
+.txn-table{width:100%;border-collapse:separate;border-spacing:0;background:var(--surface);border:1px solid var(--border);border-radius:var(--radius);overflow:hidden;box-shadow:var(--shadow)}
+.txn-table th{padding:10px 14px;font-size:11px;font-weight:600;color:var(--text3);text-transform:uppercase;letter-spacing:0.4px;background:var(--surface2);border-bottom:1px solid var(--border);text-align:left;white-space:nowrap}
+.txn-table td{padding:11px 14px;border-bottom:1px solid var(--border);font-size:13px;vertical-align:middle}
+.txn-table tr:last-child td{border-bottom:none}
+.txn-table tr:hover td{background:#FAFAF8}
+tr.row-review td{background:#FFFBF2}
+tr.row-review:hover td{background:#FFF4DC}
+tr.row-manual td{background:#FAFAFA}
+
+.shop-name{font-weight:600;font-size:13px}
+.shop-sub{font-size:11px;color:var(--text3);margin-top:2px}
+.mono{font-family:'DM Mono',monospace;font-weight:500}
+
+/* Badges */
+.badge{display:inline-flex;align-items:center;gap:4px;padding:2px 8px;border-radius:12px;font-size:11px;font-weight:600;white-space:nowrap}
+.badge-email{background:var(--finance-light);color:var(--finance);border:1px solid var(--finance-border)}
+.badge-bank{background:var(--accent-light);color:var(--accent);border:1px solid #A9DFBF}
+.badge-both{background:var(--success-light);color:var(--success);border:1px solid #A9DFBF}
+.badge-linked{background:var(--finance-light);color:var(--finance);border:1px solid var(--finance-border)}
+.badge-receipt{background:#FEF9E7;color:var(--warning);border:1px solid #F0D09A}
+.badge-manual{background:var(--surface2);color:var(--text3);border:1px solid var(--border)}
+
+/* Status */
+.status-matched{color:var(--success);font-weight:600;font-size:12px}
+.status-linked{color:var(--finance);font-weight:600;font-size:12px}
+.status-review{color:var(--warning);font-weight:600;font-size:12px}
+.status-unmatched{color:var(--text3);font-size:12px}
+.status-manual{color:var(--text3);font-size:12px}
+
+/* Pay chip */
+.pay-chip{display:inline-flex;align-items:center;gap:4px;font-size:11px;color:var(--text2);background:var(--surface2);border:1px solid var(--border);border-radius:4px;padding:2px 7px;cursor:default}
+.pay-chip.editable{cursor:pointer}.pay-chip.editable:hover{border-color:var(--finance);color:var(--finance)}
+
+/* Mockup banner */
+.mockup-banner{background:#1A1916;color:white;padding:8px 24px;font-size:12px;display:flex;align-items:center;gap:12px;flex-shrink:0}
+.mockup-banner strong{color:#FCD34D}
+
+@media(max-width:900px){
+  .stats-row{grid-template-columns:1fr 1fr}
+  .form-row{grid-template-columns:1fr 1fr}
+  .review-sides{flex-direction:column}
+  .review-email-side{flex:none;width:100%}
+}
+@media(max-width:768px){
+  .app{flex-direction:column;height:auto;min-height:100vh;overflow:visible}
+  .sidebar{width:100%;flex-direction:row;border-right:none;border-bottom:1px solid var(--border)}
+  .sidebar-logo{display:none}
+  .sidebar-nav{flex-direction:row;padding:6px 8px;overflow-x:auto;gap:4px;flex:none}
+  .sidebar-nav .nav-divider{display:none}
+  .nav-item{padding:6px 10px;font-size:12px;white-space:nowrap}
+  .sidebar-footer{display:none}
+  .main{overflow:visible}
+  .content{padding:12px}
+  .topbar{padding:0 14px;height:auto;min-height:48px;flex-wrap:wrap;gap:6px;padding-top:8px;padding-bottom:8px}
+  .stats-row{grid-template-columns:1fr 1fr}
+  .form-row{grid-template-columns:1fr}
+}
+</style>
+</head>
+<body>
+
+<div class="mockup-banner">
+  <strong>MOCKUP</strong>
+  <span style="color:#9CA3AF">Finance Dashboard v10 — design reference, not yet implemented</span>
+</div>
+
+<div class="app">
+
+  <!-- Sidebar -->
+  <div class="sidebar">
+    <div class="sidebar-logo">
+      <div class="logo-mark">
+        <div class="logo-icon">🧾</div>
+        <div>
+          <div class="logo-text">Receipt Scanner</div>
+          <div class="logo-sub">andreit@gmail.com</div>
+        </div>
+      </div>
+    </div>
+    <div class="sidebar-nav">
+      <button class="nav-item">◎ Dashboard</button>
+      <button class="nav-item">≡ Receipts</button>
+      <button class="nav-item">📷 Scan Receipt</button>
+      <button class="nav-item">⊞ Mappings</button>
+      <div class="nav-divider"></div>
+      <button class="nav-item active">
+        <span style="display:inline-flex;align-items:center;justify-content:center;width:16px;height:16px;background:var(--finance);border-radius:3px;font-size:10px;color:white">💳</span>
+        Finance
+      </button>
+      <button class="nav-item">
+        <span style="display:inline-flex;align-items:center;justify-content:center;width:16px;height:16px;background:var(--starling);border-radius:3px;font-size:10px">✦</span>
+        Grocery Match
+      </button>
+    </div>
+    <div class="sidebar-footer">
+      <button class="nav-item" style="color:var(--text3);font-size:12px">⏏ Sign out</button>
+    </div>
+  </div>
+
+  <!-- Main -->
+  <div class="main">
+    <div class="topbar">
+      <div class="topbar-title">Finance</div>
+      <span id="sync-status" style="font-size:12px;color:var(--text3)">Last synced: today 08:32</span>
+      <button class="btn btn-secondary btn-sm" onclick="downloadXlsx()">⬇ finance.xlsx</button>
+      <button class="btn btn-primary btn-sm" id="sync-btn" onclick="syncNow()">↻ Sync</button>
+    </div>
+
+    <div class="content">
+
+      <!-- Stats -->
+      <div class="stats-row">
+        <div class="stat-card is-total">
+          <div class="stat-label">💳 April spend</div>
+          <div class="stat-amount">£291.94</div>
+          <div class="stat-count">8 transactions</div>
+        </div>
+        <div class="stat-card is-matched">
+          <div class="stat-label">✓ Matched / Linked</div>
+          <div class="stat-amount" id="stat-matched">5</div>
+          <div class="stat-count">email + bank confirmed</div>
+        </div>
+        <div class="stat-card is-review">
+          <div class="stat-label">⚠ Needs review</div>
+          <div class="stat-amount" id="stat-review">1</div>
+          <div class="stat-count">ambiguous match</div>
+        </div>
+        <div class="stat-card is-unmatched">
+          <div class="stat-label">— No bank record</div>
+          <div class="stat-amount">2</div>
+          <div class="stat-count">cash / other card</div>
+        </div>
+      </div>
+
+      <!-- Needs Review panel -->
+      <div class="review-panel" id="review-panel">
+        <div class="review-header" onclick="toggleReview()">
+          <span>⚠</span>
+          <div class="review-header-title" id="review-header-title">1 transaction needs your attention</div>
+          <div class="review-toggle" id="review-toggle">▾ Show</div>
+        </div>
+        <div class="review-body" id="review-body">
+          <div class="review-card" id="review-card-aliexpress">
+            <div class="review-card-title">Which Starling transaction matches this email?</div>
+            <div class="review-sides">
+              <div class="review-email-side">
+                <div class="side-label">📧 Email</div>
+                <div style="font-weight:600;font-size:13px;margin-bottom:2px">AliExpress</div>
+                <div style="font-size:12px;color:var(--text2)">£18.75 · 7 Apr 2026</div>
+                <div style="font-size:11px;color:var(--text3);margin-top:4px">Order #8138450291</div>
+              </div>
+              <div class="review-candidates">
+                <div style="font-size:11px;font-weight:600;color:var(--text3);margin-bottom:6px;text-transform:uppercase;letter-spacing:0.4px">2 Starling candidates:</div>
+                <div class="candidate-row">
+                  <div class="candidate-info">
+                    <div style="font-weight:600">ALIEXPRESS · £18.75</div>
+                    <div style="font-size:11px;color:var(--text3)">6 Apr · 1 day before email</div>
+                  </div>
+                  <button class="btn btn-success btn-xs" onclick="confirmMatch('candidate-1')">✓ This one</button>
+                </div>
+                <div class="candidate-row">
+                  <div class="candidate-info">
+                    <div style="font-weight:600">ALIBABA EUROPE · £18.75</div>
+                    <div style="font-size:11px;color:var(--text3)">8 Apr · 1 day after email</div>
+                  </div>
+                  <button class="btn btn-success btn-xs" onclick="confirmMatch('candidate-2')">✓ This one</button>
+                </div>
+                <div class="review-actions">
+                  <button class="btn btn-secondary btn-xs" onclick="markNoBank()">No bank match — paid by card</button>
+                  <button class="btn btn-secondary btn-xs" style="color:var(--text3)" onclick="skipReview()">Skip for now</button>
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <!-- Filter + Add button -->
+      <div class="filter-bar">
+        <button class="filter-btn active" data-filter="all" onclick="setFilter(this)">All (8)</button>
+        <button class="filter-btn" data-filter="matched" onclick="setFilter(this)">✓ Matched (4)</button>
+        <button class="filter-btn" data-filter="linked" onclick="setFilter(this)">🔗 Linked (1)</button>
+        <button class="filter-btn" data-filter="review" onclick="setFilter(this)">⚠ Review (1)</button>
+        <button class="filter-btn" data-filter="unmatched" onclick="setFilter(this)">— No bank (2)</button>
+        <button class="filter-btn" data-filter="manual" onclick="setFilter(this)">✋ Manual (1)</button>
+        <div class="filter-spacer"></div>
+        <button class="btn btn-secondary btn-sm" onclick="toggleManualForm()">+ Add transaction</button>
+      </div>
+
+      <!-- Manual entry form -->
+      <div class="manual-form" id="manual-form">
+        <div class="form-title">➕ Add manual transaction</div>
+        <div class="form-row">
+          <div class="form-group">
+            <label class="form-label">Date</label>
+            <input class="form-input" type="date" value="2026-04-10">
+          </div>
+          <div class="form-group">
+            <label class="form-label">Store / Merchant</label>
+            <input class="form-input" type="text" placeholder="e.g. Ice cream van">
+          </div>
+          <div class="form-group">
+            <label class="form-label">Amount (GBP)</label>
+            <input class="form-input" type="number" placeholder="0.00" step="0.01">
+          </div>
+        </div>
+        <div class="form-row">
+          <div class="form-group">
+            <label class="form-label">Category</label>
+            <select class="form-input">
+              <option>Food &amp; Drink</option>
+              <option>Shopping</option>
+              <option>Travel</option>
+              <option>Clothing</option>
+              <option>Transport</option>
+              <option>Health</option>
+              <option>Entertainment</option>
+              <option>Other</option>
+            </select>
+          </div>
+          <div class="form-group">
+            <label class="form-label">Payment Method</label>
+            <select class="form-input">
+              <option>Cash</option>
+              <option>Starling</option>
+              <option>Credit Card</option>
+              <option>PayPal</option>
+              <option>Other</option>
+            </select>
+          </div>
+          <div class="form-group">
+            <label class="form-label">Notes (optional)</label>
+            <input class="form-input" type="text" placeholder="Any notes…">
+          </div>
+        </div>
+        <div class="form-actions">
+          <button class="btn btn-primary btn-sm" onclick="submitManual()">Save transaction</button>
+          <button class="btn btn-secondary btn-sm" onclick="toggleManualForm()">Cancel</button>
+        </div>
+      </div>
+
+      <!-- Transaction table -->
+      <table class="txn-table">
+        <thead>
+          <tr>
+            <th>Store</th>
+            <th>Category</th>
+            <th style="text-align:right">Amount</th>
+            <th>Payment</th>
+            <th>Source</th>
+            <th>Status</th>
+            <th></th>
+          </tr>
+        </thead>
+        <tbody id="txn-body"></tbody>
+      </table>
+
+    </div>
+  </div>
+</div>
+
+<script>
+const TRANSACTIONS = [
+  {
+    id:'amazon', date:'10 Apr', store:'Amazon', sub:'Order #204-5820291',
+    category:'Shopping', amount:34.99, payment:'Starling', payEditable:false,
+    status:'matched', badges:['both'],
+    statusHtml:'<span class="status-matched">✓ Matched</span>'
+  },
+  {
+    id:'ebay', date:'09 Apr', store:'eBay / PayPal', sub:'PayPal + eBay email + Starling linked',
+    category:'Shopping', amount:22.50, payment:'PayPal → Starling', payEditable:false,
+    status:'linked', badges:['linked'],
+    statusHtml:'<span class="status-linked">🔗 3 records linked</span>'
+  },
+  {
+    id:'wizz', date:'08 Apr', store:'Wizz Air', sub:'Booking W6 4821',
+    category:'Travel', amount:145.00, payment:'Credit Card', payEditable:true,
+    status:'unmatched', badges:['email'],
+    statusHtml:'<span class="status-unmatched">— No bank record</span>'
+  },
+  {
+    id:'aliexpress', date:'07 Apr', store:'AliExpress', sub:'Order #8138450291 · 2 Starling candidates',
+    category:'Shopping', amount:18.75, payment:'?', payEditable:true,
+    status:'review', badges:['email'],
+    statusHtml:'<span class="status-review">⚠ Needs review</span>'
+  },
+  {
+    id:'costa', date:'06 Apr', store:'Costa Coffee', sub:'No confirmation email received',
+    category:'Food &amp; Drink', amount:4.20, payment:'Starling', payEditable:false,
+    status:'unmatched', badges:['bank'],
+    statusHtml:'<span class="status-unmatched">— No email</span>'
+  },
+  {
+    id:'zara', date:'05 Apr', store:'Zara', sub:'Receipt photo attached',
+    category:'Clothing', amount:55.00, payment:'Starling', payEditable:false,
+    status:'matched', badges:['both','receipt'],
+    statusHtml:'<span class="status-matched">✓ Matched</span>'
+  },
+  {
+    id:'ncp', date:'03 Apr', store:'NCP Parking', sub:'',
+    category:'Transport', amount:8.00, payment:'Starling', payEditable:false,
+    status:'matched', badges:['both'],
+    statusHtml:'<span class="status-matched">✓ Matched</span>'
+  },
+  {
+    id:'icecream', date:'01 Apr', store:'Ice cream', sub:'Manual entry',
+    category:'Food &amp; Drink', amount:2.50, payment:'Cash', payEditable:true,
+    status:'manual', badges:['manual'],
+    statusHtml:'<span class="status-manual">✋ Manual</span>'
+  },
+];
+
+const BADGE = {
+  email:   '<span class="badge badge-email">📧 Email</span>',
+  bank:    '<span class="badge badge-bank">🏦 Bank</span>',
+  both:    '<span class="badge badge-both">📧+🏦 Matched</span>',
+  linked:  '<span class="badge badge-linked">🔗 Linked</span>',
+  receipt: '<span class="badge badge-receipt">📷 Receipt</span>',
+  manual:  '<span class="badge badge-manual">✋ Manual</span>',
+};
+
+let activeFilter = 'all';
+let hiddenIds = new Set();
+
+function renderRows() {
+  const visible = TRANSACTIONS.filter(t => {
+    if (hiddenIds.has(t.id)) return false;
+    if (activeFilter === 'all') return true;
+    return t.status === activeFilter;
+  });
+
+  const tbody = document.getElementById('txn-body');
+  if (!visible.length) {
+    tbody.innerHTML = '<tr><td colspan="7" style="text-align:center;padding:40px;color:var(--text3)">No transactions</td></tr>';
+    return;
+  }
+
+  tbody.innerHTML = visible.map(t => {
+    const rowClass = t.status === 'review' ? 'row-review' : t.status === 'manual' ? 'row-manual' : '';
+    const badges = t.badges.map(b => BADGE[b]).join(' ');
+    const payChip = `<span class="pay-chip ${t.payEditable ? 'editable' : ''}" onclick="${t.payEditable ? `editPayment('${t.id}')` : ''}">${t.payment}</span>`;
+    let action = '';
+    if (t.status === 'review')    action = `<button class="btn btn-secondary btn-xs" style="color:var(--warning);border-color:#F0D09A" onclick="openReview()">Review ⚠</button>`;
+    else if (t.payEditable)       action = `<button class="btn btn-secondary btn-xs" onclick="editRow('${t.id}')">Edit</button>`;
+
+    return `<tr class="${rowClass}" data-id="${t.id}" data-status="${t.status}">
+      <td>
+        <div class="shop-name">${t.store}</div>
+        ${t.sub ? `<div class="shop-sub">${t.sub}</div>` : ''}
+      </td>
+      <td style="color:var(--text2);font-size:12px">${t.category}</td>
+      <td style="text-align:right"><span class="mono">£${t.amount.toFixed(2)}</span></td>
+      <td>${payChip}</td>
+      <td style="white-space:nowrap">${badges}</td>
+      <td>${t.statusHtml}</td>
+      <td style="text-align:right">${action}</td>
+    </tr>`;
+  }).join('');
+}
+
+function setFilter(btn) {
+  activeFilter = btn.dataset.filter;
+  document.querySelectorAll('.filter-btn').forEach(b => b.classList.remove('active'));
+  btn.classList.add('active');
+  renderRows();
+}
+
+function toggleReview() {
+  const body = document.getElementById('review-body');
+  const open = body.classList.toggle('open');
+  document.getElementById('review-toggle').textContent = open ? '▴ Hide' : '▾ Show';
+}
+
+function openReview() {
+  document.getElementById('review-body').classList.add('open');
+  document.getElementById('review-toggle').textContent = '▴ Hide';
+  document.getElementById('review-panel').scrollIntoView({behavior:'smooth', block:'start'});
+}
+
+function confirmMatch(candidate) {
+  const label = candidate === 'candidate-1' ? 'ALIEXPRESS 6 Apr' : 'ALIBABA EUROPE 8 Apr';
+  document.getElementById('review-card-aliexpress').innerHTML =
+    `<div style="padding:12px;text-align:center;color:var(--success);font-weight:600;font-size:13px">✓ Matched to ${label}</div>`;
+  const txn = TRANSACTIONS.find(t => t.id === 'aliexpress');
+  txn.status = 'matched'; txn.badges = ['both']; txn.payment = 'Starling'; txn.payEditable = false;
+  txn.statusHtml = '<span class="status-matched">✓ Matched</span>';
+  document.getElementById('stat-review').textContent = '0';
+  document.getElementById('stat-matched').textContent = '6';
+  document.getElementById('review-header-title').textContent = '0 transactions need your attention';
+  setTimeout(() => { document.getElementById('review-panel').style.display = 'none'; renderRows(); }, 800);
+}
+
+function markNoBank() {
+  const txn = TRANSACTIONS.find(t => t.id === 'aliexpress');
+  txn.status = 'unmatched'; txn.payment = 'Credit Card'; txn.payEditable = true;
+  txn.statusHtml = '<span class="status-unmatched">— No bank record</span>';
+  document.getElementById('stat-review').textContent = '0';
+  document.getElementById('review-panel').style.display = 'none';
+  renderRows();
+}
+
+function skipReview() {
+  document.getElementById('review-body').classList.remove('open');
+  document.getElementById('review-toggle').textContent = '▾ Show';
+}
+
+function toggleManualForm() {
+  document.getElementById('manual-form').classList.toggle('open');
+}
+
+function submitManual() {
+  alert('Mockup: transaction saved. finance.xlsx regenerated automatically.');
+  document.getElementById('manual-form').classList.remove('open');
+}
+
+function editRow(id) {
+  const t = TRANSACTIONS.find(x => x.id === id);
+  alert(`Mockup: edit panel for "${t.store}"\nEdit: payment method, category, notes, or attach a receipt photo.`);
+}
+
+function editPayment(id) {
+  const t = TRANSACTIONS.find(x => x.id === id);
+  const options = ['Starling', 'Credit Card', 'Cash', 'PayPal', 'Other'];
+  const v = prompt(`Payment method for ${t.store}:\n(${options.join(' / ')})`, t.payment);
+  if (v && v.trim()) { t.payment = v.trim(); renderRows(); }
+}
+
+function syncNow() {
+  const btn = document.getElementById('sync-btn');
+  btn.textContent = '↻ Syncing…'; btn.disabled = true;
+  document.getElementById('sync-status').textContent = 'Pulling Gmail + Starling…';
+  setTimeout(() => {
+    btn.textContent = '↻ Sync'; btn.disabled = false;
+    document.getElementById('sync-status').textContent = 'Last synced: just now';
+  }, 1800);
+}
+
+function downloadXlsx() {
+  alert('Mockup: presigned S3 URL generated → finance.xlsx download starts.\nFile is always current — regenerated after every sync and every manual change.');
+}
+
+renderRows();
+</script>
+</body>
+</html>
