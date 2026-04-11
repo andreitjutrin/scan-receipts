@@ -9,7 +9,7 @@
         <mxCell id="title" value="Grocery Receipt Scanner v10 — Finance Email &amp; Multi-Source Integration" style="text;html=1;strokeColor=none;fillColor=none;align=left;verticalAlign=middle;whiteSpace=wrap;rounded=0;fontSize=18;fontStyle=1;fontColor=#1A1916;" vertex="1" parent="1">
           <mxGeometry x="40" y="20" width="1000" height="40" as="geometry" />
         </mxCell>
-        <mxCell id="subtitle" value="New in v10: Gmail email ingestion · OpenAI gpt-4o-mini extraction · FinanceTransactionsTable · Multi-source matching · Finance dashboard · Auto-regenerating finance.xlsx" style="text;html=1;strokeColor=none;fillColor=none;align=left;verticalAlign=middle;whiteSpace=wrap;rounded=0;fontSize=12;fontColor=#6B6860;" vertex="1" parent="1">
+        <mxCell id="subtitle" value="Live (green + purple): grocery scanner + Starling reconciliation deployed 24 Mar 2026 · New in v10 (blue): Gmail ingestion · OpenAI gpt-4o-mini · FinanceTransactionsTable · Finance dashboard · finance.xlsx" style="text;html=1;strokeColor=none;fillColor=none;align=left;verticalAlign=middle;whiteSpace=wrap;rounded=0;fontSize=12;fontColor=#6B6860;" vertex="1" parent="1">
           <mxGeometry x="40" y="55" width="1000" height="24" as="geometry" />
         </mxCell>
 
@@ -17,7 +17,7 @@
         <mxCell id="legend-new10" value="New in v10" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#E8F4FD;strokeColor=#1B6CA8;fontColor=#1B6CA8;fontSize=11;fontStyle=1;" vertex="1" parent="1">
           <mxGeometry x="1590" y="20" width="100" height="30" as="geometry" />
         </mxCell>
-        <mxCell id="legend-new" value="New in v9" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#F0EBFF;strokeColor=#6C3CE1;fontColor=#4a2fa0;fontSize=11;fontStyle=1;" vertex="1" parent="1">
+        <mxCell id="legend-new" value="Live — deployed v9" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#F0EBFF;strokeColor=#6C3CE1;fontColor=#4a2fa0;fontSize=11;fontStyle=1;" vertex="1" parent="1">
           <mxGeometry x="1480" y="20" width="100" height="30" as="geometry" />
         </mxCell>
         <mxCell id="legend-exist" value="Existing" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#EAF2EE;strokeColor=#2A6049;fontColor=#2A6049;fontSize=11;fontStyle=1;" vertex="1" parent="1">
@@ -225,7 +225,7 @@
         <!-- ═══════════════════════════════════════════════════════ -->
         <!-- STARLING GROCERY SYNC FLOW (from v9, shifted down)      -->
         <!-- ═══════════════════════════════════════════════════════ -->
-        <mxCell id="flow-label" value="STARLING GROCERY SYNC FLOW (POST /starling/sync)" style="text;html=1;strokeColor=none;fillColor=#F0EBFF;align=left;verticalAlign=middle;whiteSpace=wrap;rounded=1;fontSize=12;fontStyle=1;fontColor=#4a2fa0;" vertex="1" parent="1">
+        <mxCell id="flow-label" value="STARLING GROCERY SYNC FLOW — LIVE (POST /starling/sync · deployed 24 Mar 2026)" style="text;html=1;strokeColor=none;fillColor=#F0EBFF;align=left;verticalAlign=middle;whiteSpace=wrap;rounded=1;fontSize=12;fontStyle=1;fontColor=#4a2fa0;" vertex="1" parent="1">
           <mxGeometry x="40" y="1000" width="430" height="28" as="geometry" />
         </mxCell>
         <mxCell id="flow1" value="① User taps&#xa;↻ Sync" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#F0EBFF;strokeColor=#6C3CE1;fontColor=#4a2fa0;fontSize=11;" vertex="1" parent="1">
